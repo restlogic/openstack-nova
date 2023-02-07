@@ -24,8 +24,9 @@ from nova.compute import rpcapi as compute_rpcapi
 from nova.i18n import _
 from nova.policies import instance_usage_audit_log as iual_policies
 from nova import utils
+from bees import profiler as p
 
-
+@p.trace_cls("InstanceUsageAuditLogController")
 class InstanceUsageAuditLogController(wsgi.Controller):
 
     def __init__(self):

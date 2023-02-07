@@ -12,9 +12,13 @@
 """WSGI application entry-point for Nova Metadata API, installed by pbr."""
 
 from nova.api.openstack import wsgi_app
+from bees import initializer
 
 NAME = "metadata"
 
 
 def init_application():
+
+    initializer.init_from_conf('nova-api-metadata-wsgi', eventlet=True, eventlet_scope_manager=True)
+
     return wsgi_app.init_application(NAME)

@@ -29,12 +29,14 @@ from nova.i18n import _
 from nova.network import neutron
 from nova.policies import evacuate as evac_policies
 from nova import utils
+from bees import profiler as p
 
 CONF = nova.conf.CONF
 
 LOG = logging.getLogger(__name__)
 
 
+@p.trace_cls("EvacuateController")
 class EvacuateController(wsgi.Controller):
     def __init__(self):
         super(EvacuateController, self).__init__()

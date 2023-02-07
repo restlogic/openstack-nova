@@ -32,10 +32,12 @@ from nova import exception
 from nova.i18n import _
 from nova import objects
 from nova.policies import simple_tenant_usage as stu_policies
+from bees import profiler as p
 
 CONF = nova.conf.CONF
 
 
+@p.trace("parse_strtime")
 def parse_strtime(dstr, fmt):
     try:
         return timeutils.parse_strtime(dstr, fmt)
@@ -43,6 +45,7 @@ def parse_strtime(dstr, fmt):
         raise exception.InvalidStrTime(reason=str(e))
 
 
+@p.trace_cls("SimpleTenantUsageController")
 class SimpleTenantUsageController(wsgi.Controller):
 
     _view_builder_class = usages_view.ViewBuilder

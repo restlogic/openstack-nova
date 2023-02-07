@@ -26,6 +26,8 @@ from nova import objects
 from nova import service
 from nova import utils
 
+from bees import initializer
+
 CONF = cfg.CONF
 
 CONFIG_FILES = ['api-paste.ini', 'nova.conf']
@@ -102,6 +104,7 @@ def init_global_data(conf_files):
 
 
 def init_application(name):
+    initializer.init_from_conf('nova-api-wsgi', eventlet=True, eventlet_scope_manager=True)
     conf_files = _get_config_files()
 
     # NOTE(melwitt): The init_application method can be called multiple times

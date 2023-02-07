@@ -24,7 +24,7 @@ from nova import objects
 from nova.policies import quota_class_sets as qcs_policies
 from nova import quota
 from nova import utils
-
+from bees import profiler as p
 
 QUOTAS = quota.QUOTAS
 
@@ -43,6 +43,7 @@ FILTERED_QUOTAS_2_57.extend(['injected_files', 'injected_file_content_bytes',
                              'injected_file_path_bytes'])
 
 
+@p.trace_cls("QuotaClassSetsController")
 class QuotaClassSetsController(wsgi.Controller):
 
     supported_quotas = []

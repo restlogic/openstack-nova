@@ -30,11 +30,12 @@ from nova import exception
 from nova.i18n import _
 from nova.network import neutron
 from nova.policies import floating_ips as fi_policies
-
+from bees import profiler as p
 
 LOG = logging.getLogger(__name__)
 
 
+@p.trace("_translate_floating_ip_view")
 def _translate_floating_ip_view(floating_ip):
     instance_id = None
     if floating_ip['port_details']:
@@ -52,6 +53,7 @@ def _translate_floating_ip_view(floating_ip):
     }
 
 
+@p.trace("get_instance_by_floating_ip_addr")
 def get_instance_by_floating_ip_addr(self, context, address):
     try:
         instance_id =\
@@ -67,6 +69,7 @@ def get_instance_by_floating_ip_addr(self, context, address):
                                    expected_attrs=['flavor'])
 
 
+@p.trace("disassociate_floating_ip")
 def disassociate_floating_ip(self, context, instance, address):
     try:
         self.network_api.disassociate_floating_ip(context, instance, address)
@@ -74,6 +77,7 @@ def disassociate_floating_ip(self, context, instance, address):
         raise webob.exc.HTTPForbidden()
 
 
+@p.trace_cls("FloatingIPController")
 class FloatingIPController(wsgi.Controller):
     """The Floating IPs API controller for the OpenStack API."""
 
@@ -175,6 +179,7 @@ class FloatingIPController(wsgi.Controller):
             raise webob.exc.HTTPNotFound(explanation=exc.format_message())
 
 
+@p.trace_cls("FloatingIPActionController")
 class FloatingIPActionController(wsgi.Controller):
     """This API is deprecated from the Microversion '2.44'."""
 

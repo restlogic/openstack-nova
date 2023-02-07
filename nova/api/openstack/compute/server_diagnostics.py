@@ -22,8 +22,9 @@ from nova.api.openstack import wsgi
 from nova.compute import api as compute
 from nova import exception
 from nova.policies import server_diagnostics as sd_policies
+from bees import profiler as p
 
-
+@p.trace_cls("ServerDiagnosticsController")
 class ServerDiagnosticsController(wsgi.Controller):
     _view_builder_class = server_diagnostics.ViewBuilder
 

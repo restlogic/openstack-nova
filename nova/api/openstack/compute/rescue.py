@@ -26,10 +26,12 @@ import nova.conf
 from nova import exception
 from nova.policies import rescue as rescue_policies
 from nova import utils
+from bees import profiler as p
 
 CONF = nova.conf.CONF
 
 
+@p.trace_cls("RescueController")
 class RescueController(wsgi.Controller):
     def __init__(self):
         super(RescueController, self).__init__()

@@ -19,8 +19,9 @@ from oslo_utils import strutils
 from nova.api.openstack import common
 from nova.image import glance
 from nova import utils
+from bees import profiler as p
 
-
+@p.trace_cls("ViewBuilder")
 class ViewBuilder(common.ViewBuilder):
 
     _collection_name = "images"

@@ -15,8 +15,9 @@ from nova.api.openstack import common
 from nova.api.openstack import wsgi
 from nova.compute import api as compute
 from nova.policies import server_topology as st_policies
+from bees import profiler as p
 
-
+@p.trace_cls("ServerTopologyController")
 class ServerTopologyController(wsgi.Controller):
 
     def __init__(self, *args, **kwargs):

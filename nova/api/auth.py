@@ -27,11 +27,13 @@ import nova.conf
 from nova import context
 from nova.i18n import _
 
+from bees import profiler as p
 
 CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
 
+@p.trace("_load_pipeline")
 def _load_pipeline(loader, pipeline):
     filters = [loader.get_filter(n) for n in pipeline[:-1]]
     app = loader.get_app(pipeline[-1])
@@ -41,6 +43,7 @@ def _load_pipeline(loader, pipeline):
     return app
 
 
+@p.trace("pipeline_factory")
 def pipeline_factory(loader, global_conf, **local_conf):
     """A paste pipeline replica that keys off of auth_strategy."""
     versionutils.report_deprecated_feature(
@@ -51,6 +54,7 @@ def pipeline_factory(loader, global_conf, **local_conf):
     )
 
 
+@p.trace("pipeline_factory_v21")
 def pipeline_factory_v21(loader, global_conf, **local_conf):
     """A paste pipeline replica that keys off of auth_strategy."""
     auth_strategy = CONF.api.auth_strategy
@@ -65,6 +69,7 @@ def pipeline_factory_v21(loader, global_conf, **local_conf):
     return _load_pipeline(loader, local_conf[auth_strategy].split())
 
 
+@p.trace_cls("InjectContext")
 class InjectContext(wsgi.Middleware):
     """Add a 'nova.context' to WSGI environ."""
 
@@ -78,6 +83,7 @@ class InjectContext(wsgi.Middleware):
         return self.application
 
 
+@p.trace_cls("NovaKeystoneContext")
 class NovaKeystoneContext(wsgi.Middleware):
     """Make a request context from keystone headers."""
 

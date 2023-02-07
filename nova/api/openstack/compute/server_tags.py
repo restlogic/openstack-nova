@@ -27,12 +27,14 @@ from nova.i18n import _
 from nova.notifications import base as notifications_base
 from nova import objects
 from nova.policies import server_tags as st_policies
+from bees import profiler as p
 
-
+@p.trace("_get_tags_names")
 def _get_tags_names(tags):
     return [t.tag for t in tags]
 
 
+@p.trace("_get_instance_mapping")
 def _get_instance_mapping(context, server_id):
     try:
         return objects.InstanceMapping.get_by_instance_uuid(context,
@@ -41,6 +43,7 @@ def _get_instance_mapping(context, server_id):
         raise webob.exc.HTTPNotFound(explanation=e.format_message())
 
 
+@p.trace_cls("ServerTagsController")
 class ServerTagsController(wsgi.Controller):
     _view_builder_class = server_tags.ViewBuilder
 

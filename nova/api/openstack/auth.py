@@ -23,9 +23,12 @@ from nova.api import wsgi as base_wsgi
 import nova.conf
 from nova import context
 
+from bees import profiler as p
+
 CONF = nova.conf.CONF
 
 
+@p.trace_cls("NoAuthMiddlewareBase")
 class NoAuthMiddlewareBase(base_wsgi.Middleware):
     """Return a fake token if one isn't specified."""
 
@@ -63,7 +66,8 @@ class NoAuthMiddlewareBase(base_wsgi.Middleware):
         return self.application
 
 
-class NoAuthMiddleware(NoAuthMiddlewareBase):
+@p.trace_cls("NoAuthMleware")
+class NoAuthMleware(NoAuthMiddlewareBase):
     """Return a fake token if one isn't specified.
 
     noauth2 provides admin privs if 'admin' is provided as the user id.
@@ -74,6 +78,7 @@ class NoAuthMiddleware(NoAuthMiddlewareBase):
         return self.base_call(req, True, always_admin=False)
 
 
+@p.trace_cls("NoAuthMiddlewareV2_18")
 class NoAuthMiddlewareV2_18(NoAuthMiddlewareBase):
     """Return a fake token if one isn't specified.
 

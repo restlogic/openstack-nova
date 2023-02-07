@@ -18,11 +18,14 @@ from nova.compute import api as compute
 import nova.conf
 from nova.policies import availability_zone as az_policies
 from nova import servicegroup
+from bees import profiler as p
+
 
 CONF = nova.conf.CONF
 ATTRIBUTE_NAME = "availability_zone"
 
 
+@p.trace_cls("AvailabilityZoneController")
 class AvailabilityZoneController(wsgi.Controller):
     """The Availability Zone API controller for the OpenStack API."""
 

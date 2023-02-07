@@ -20,8 +20,9 @@ from nova.api.openstack import wsgi
 from nova.api import validation
 from nova.compute import api as compute
 from nova.policies import lock_server as ls_policies
+from bees import profiler as p
 
-
+@p.trace_cls("LockServerController")
 class LockServerController(wsgi.Controller):
     def __init__(self):
         super(LockServerController, self).__init__()

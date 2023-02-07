@@ -29,8 +29,9 @@ from nova import exception
 from nova.i18n import _
 from nova.objects import keypair as keypair_obj
 from nova.policies import keypairs as kp_policies
+from bees import profiler as p
 
-
+@p.trace_cls("KeypairController")
 class KeypairController(wsgi.Controller):
 
     """Keypair API controller for the OpenStack API."""

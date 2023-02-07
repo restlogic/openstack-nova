@@ -17,6 +17,8 @@ import re
 from nova import exception
 from nova.i18n import _
 
+from bees import profiler as p
+
 # Define the minimum and maximum version of the API across all of the
 # REST API. The format of the version is:
 # X.Y where:
@@ -264,14 +266,17 @@ MIN_WITHOUT_IMAGE_META_PROXY_API_VERSION = '2.39'
 # NOTE(cyeoh): min and max versions declared as functions so we can
 # mock them for unittests. Do not use the constants directly anywhere
 # else.
+@p.trace("min_api_version")
 def min_api_version():
     return APIVersionRequest(_MIN_API_VERSION)
 
 
+@p.trace("max_api_version")
 def max_api_version():
     return APIVersionRequest(_MAX_API_VERSION)
 
 
+@p.trace("is_supported")
 def is_supported(req, min_version=_MIN_API_VERSION,
                  max_version=_MAX_API_VERSION):
     """Check if API request version satisfies version restrictions.
@@ -290,6 +295,7 @@ def is_supported(req, min_version=_MIN_API_VERSION,
             APIVersionRequest(min_version))
 
 
+@p.trace_cls("APIVersionRequest")
 class APIVersionRequest(object):
     """This class represents an API Version Request with convenience
     methods for manipulation and comparison of version

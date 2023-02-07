@@ -33,12 +33,14 @@ from nova.i18n import _
 from nova.policies import hypervisors as hv_policies
 from nova import servicegroup
 from nova import utils
+from bees import profiler as p
 
 LOG = logging.getLogger(__name__)
 
 UUID_FOR_ID_MIN_VERSION = '2.53'
 
 
+@p.trace_cls("HypervisorsController")
 class HypervisorsController(wsgi.Controller):
     """The Hypervisors API controller for the OpenStack API."""
 

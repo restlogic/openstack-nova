@@ -33,6 +33,8 @@ from nova import objects
 from nova import quota
 from nova import utils
 
+from bees import profiler as p
+
 CONF = nova.conf.CONF
 
 LOG = logging.getLogger(__name__)
@@ -112,6 +114,7 @@ _STATE_MAP = {
 }
 
 
+@p.trace("status_from_state")
 def status_from_state(vm_state, task_state='default'):
     """Given vm_state and task_state, return a status string."""
     task_map = _STATE_MAP.get(vm_state, dict(default='UNKNOWN'))
@@ -124,6 +127,7 @@ def status_from_state(vm_state, task_state='default'):
     return status
 
 
+@p.trace("task_and_vm_state_from_status")
 def task_and_vm_state_from_status(statuses):
     """Map the server's multiple status strings to list of vm states and
     list of task states.
@@ -141,6 +145,7 @@ def task_and_vm_state_from_status(statuses):
     return sorted(vm_states), sorted(task_states)
 
 
+@p.trace("get_sort_params")
 def get_sort_params(input_params, default_key='created_at',
                     default_dir='desc'):
     """Retrieves sort keys/directions parameters.
@@ -174,6 +179,7 @@ def get_sort_params(input_params, default_key='created_at',
     return sort_keys, sort_dirs
 
 
+@p.trace("get_pagination_params")
 def get_pagination_params(request):
     """Return marker, limit tuple from request.
 
@@ -198,6 +204,7 @@ def get_pagination_params(request):
     return params
 
 
+@p.trace("_get_int_param")
 def _get_int_param(request, param):
     """Extract integer param from request or fail."""
     try:
@@ -208,11 +215,13 @@ def _get_int_param(request, param):
     return int_param
 
 
+@p.trace("_get_marker_param")
 def _get_marker_param(request):
     """Extract marker id from request or fail."""
     return request.GET['marker']
 
 
+@p.trace("limited")
 def limited(items, request):
     """Return a slice of items according to requested offset and limit.
 
@@ -232,6 +241,7 @@ def limited(items, request):
     return items[offset:(offset + limit)]
 
 
+@p.trace("get_limit_and_marker")
 def get_limit_and_marker(request):
     """Get limited parameter from request."""
     params = get_pagination_params(request)
@@ -242,6 +252,7 @@ def get_limit_and_marker(request):
     return limit, marker
 
 
+@p.trace("get_id_from_href")
 def get_id_from_href(href):
     """Return the id or uuid portion of a url.
 
@@ -255,6 +266,7 @@ def get_id_from_href(href):
     return urlparse.urlsplit("%s" % href).path.split('/')[-1]
 
 
+@p.trace("remove_trailing_version_from_href")
 def remove_trailing_version_from_href(href):
     """Removes the api version from the href.
 
@@ -280,6 +292,7 @@ def remove_trailing_version_from_href(href):
     return urlparse.urlunsplit(parsed_url)
 
 
+@p.trace("check_img_metadata_properties_quota")
 def check_img_metadata_properties_quota(context, metadata):
     if not metadata:
         return
@@ -290,6 +303,7 @@ def check_img_metadata_properties_quota(context, metadata):
         raise webob.exc.HTTPForbidden(explanation=expl)
 
 
+@p.trace("get_networks_for_instance_from_nw_info")
 def get_networks_for_instance_from_nw_info(nw_info):
     networks = collections.OrderedDict()
     for vif in nw_info:
@@ -305,6 +319,7 @@ def get_networks_for_instance_from_nw_info(nw_info):
     return networks
 
 
+@p.trace("get_networks_for_instance")
 def get_networks_for_instance(context, instance):
     """Returns a prepared nw_info list for passing into the view builders
 
@@ -328,6 +343,7 @@ def get_networks_for_instance(context, instance):
     return get_networks_for_instance_from_nw_info(nw_info)
 
 
+@p.trace("raise_http_conflict_for_instance_invalid_state")
 def raise_http_conflict_for_instance_invalid_state(exc, action, server_id):
     """Raises a webob.exc.HTTPConflict instance containing a message
     appropriate to return via the API based on the original
@@ -347,6 +363,7 @@ def raise_http_conflict_for_instance_invalid_state(exc, action, server_id):
     raise webob.exc.HTTPConflict(explanation=msg)
 
 
+@p.trace("url_join")
 def url_join(*parts):
     """Convenience method for joining parts of a URL
 
@@ -362,6 +379,7 @@ def url_join(*parts):
     return "/".join(clean_parts)
 
 
+@p.trace_cls("ViewBuilder")
 class ViewBuilder(object):
     """Model API responses as dictionaries."""
 
@@ -461,6 +479,7 @@ class ViewBuilder(object):
         return self._update_link_prefix(orig_url, CONF.api.compute_link_prefix)
 
 
+@p.trace("get_instance")
 def get_instance(compute_api, context, instance_id, expected_attrs=None,
                  cell_down_support=False):
     """Fetch an instance from the compute API, handling error checking."""
@@ -472,6 +491,7 @@ def get_instance(compute_api, context, instance_id, expected_attrs=None,
         raise exc.HTTPNotFound(explanation=e.format_message())
 
 
+@p.trace("normalize_name")
 def normalize_name(name):
     # NOTE(alex_xu): This method is used by v2.1 legacy v2 compat mode.
     # In the legacy v2 API, some of APIs strip the spaces and some of APIs not.
@@ -483,12 +503,14 @@ def normalize_name(name):
     return name.strip()
 
 
+@p.trace("raise_feature_not_supported")
 def raise_feature_not_supported(msg=None):
     if msg is None:
         msg = _("The requested functionality is not supported.")
     raise webob.exc.HTTPNotImplemented(explanation=msg)
 
 
+@p.trace("get_flavor")
 def get_flavor(context, flavor_id):
     try:
         return objects.Flavor.get_by_flavor_id(context, flavor_id)
@@ -496,6 +518,7 @@ def get_flavor(context, flavor_id):
         raise exc.HTTPNotFound(explanation=error.format_message())
 
 
+@p.trace("is_all_tenants")
 def is_all_tenants(search_opts):
     """Checks to see if the all_tenants flag is in search_opts
 
@@ -514,6 +537,7 @@ def is_all_tenants(search_opts):
     return all_tenants
 
 
+@p.trace("is_locked")
 def is_locked(search_opts):
     """Converts the value of the locked parameter to a boolean. Note that
     this function will be called only if locked exists in search_opts.
@@ -529,6 +553,7 @@ def is_locked(search_opts):
     return locked
 
 
+@p.trace("supports_multiattach_volume")
 def supports_multiattach_volume(req):
     """Check to see if the requested API version is high enough for multiattach
 
@@ -544,6 +569,7 @@ def supports_multiattach_volume(req):
     return api_version_request.is_supported(req, '2.60')
 
 
+@p.trace("supports_port_resource_request")
 def supports_port_resource_request(req):
     """Check to see if the requested API version is high enough for resource
     request

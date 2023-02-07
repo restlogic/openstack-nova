@@ -16,10 +16,13 @@
 from nova.api.openstack import api_version_request
 from nova.api.openstack import common
 
+from bees import profiler as p
+
 FLAVOR_DESCRIPTION_MICROVERSION = '2.55'
 FLAVOR_EXTRA_SPECS_MICROVERSION = '2.61'
 
 
+@p.trace_cls("ViewBuilder")
 class ViewBuilder(common.ViewBuilder):
 
     _collection_name = "flavors"

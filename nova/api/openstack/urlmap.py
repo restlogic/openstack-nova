@@ -21,6 +21,7 @@ import paste.urlmap
 
 from nova.api.openstack import wsgi
 
+from bees import profiler as p
 
 LOG = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ _option_header_piece_re = re.compile(r';\s*([^\s;=]+|%s)\s*'
     (_quoted_string_re, _quoted_string_re))
 
 
+@p.trace("unquote_header_value")
 def unquote_header_value(value):
     """Unquotes a header value.
     This does not use the real unquoting but what browsers are actually
@@ -47,6 +49,7 @@ def unquote_header_value(value):
     return value
 
 
+@p.trace("parse_list_header")
 def parse_list_header(value):
     """Parse lists as described by RFC 2068 Section 2.
 
@@ -71,6 +74,7 @@ def parse_list_header(value):
     return result
 
 
+@p.trace("parse_options_header")
 def parse_options_header(value):
     """Parse a ``Content-Type`` like header into a tuple with the content
     type and the options:
@@ -98,6 +102,7 @@ def parse_options_header(value):
     return name, extra
 
 
+@p.trace_cls("Accept")
 class Accept(object):
     def __init__(self, value):
         self._content_types = [parse_options_header(v) for v in
@@ -142,6 +147,7 @@ class Accept(object):
         return content_type_major == mask_major
 
 
+@p.trace("urlmap_factory")
 def urlmap_factory(loader, global_conf, **local_conf):
     if 'not_found_app' in local_conf:
         not_found_app = local_conf.pop('not_found_app')
@@ -157,6 +163,7 @@ def urlmap_factory(loader, global_conf, **local_conf):
     return urlmap
 
 
+@p.trace_cls("URLMap")
 class URLMap(paste.urlmap.URLMap):
     def _match(self, host, port, path_info):
         """Find longest match for a given URL path."""

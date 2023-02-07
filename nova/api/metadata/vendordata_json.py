@@ -23,10 +23,12 @@ from oslo_serialization import jsonutils
 from nova.api.metadata import vendordata
 import nova.conf
 
+from bees import profiler as p
+
 CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
-
+@p.trace_cls("JsonFileVendorData")
 class JsonFileVendorData(vendordata.VendorDataDriver):
     def __init__(self, *args, **kwargs):
         super(JsonFileVendorData, self).__init__(*args, **kwargs)

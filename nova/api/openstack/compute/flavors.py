@@ -28,8 +28,9 @@ from nova.i18n import _
 from nova import objects
 from nova.policies import flavor_extra_specs as fes_policies
 from nova import utils
+from bees import profiler as p
 
-
+@p.trace_cls("FlavorsController")
 class FlavorsController(wsgi.Controller):
     """Flavor controller for the OpenStack API."""
 

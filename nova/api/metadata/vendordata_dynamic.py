@@ -25,13 +25,15 @@ from oslo_serialization import jsonutils
 from nova.api.metadata import vendordata
 import nova.conf
 
+from bees import profiler as p
+
 CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
 _SESSION = None
 _ADMIN_AUTH = None
 
-
+@p.trace("_load_ks_session")
 def _load_ks_session(conf):
     """Load session.
 
@@ -57,7 +59,7 @@ def _load_ks_session(conf):
 
     return _SESSION
 
-
+@p.trace_cls("DynamicVendorData")
 class DynamicVendorData(vendordata.VendorDataDriver):
     def __init__(self, instance):
         self.instance = instance

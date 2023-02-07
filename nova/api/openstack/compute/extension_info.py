@@ -16,6 +16,7 @@ import webob.exc
 
 from nova.api.openstack import wsgi
 from nova.policies import extensions as ext_policies
+from bees import profiler as p
 
 
 EXTENSION_LIST = [
@@ -850,6 +851,7 @@ EXTENSION_LIST_LEGACY_V2_COMPATIBLE = sorted(
     EXTENSION_LIST_LEGACY_V2_COMPATIBLE, key=lambda x: x['alias'])
 
 
+@p.trace_cls("ExtensionInfoController")
 class ExtensionInfoController(wsgi.Controller):
 
     @wsgi.expected_errors(())

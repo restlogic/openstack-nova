@@ -28,9 +28,11 @@ the common middleware.
 
 from oslo_middleware import request_id
 
+from bees import profiler as p
 
 HTTP_RESP_HEADER_REQUEST_ID = 'x-compute-request-id'
 
 
+@p.trace_cls("ComputeReqIdMiddleware")
 class ComputeReqIdMiddleware(request_id.RequestId):
     compat_headers = [HTTP_RESP_HEADER_REQUEST_ID]

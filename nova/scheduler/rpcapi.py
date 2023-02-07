@@ -1,36 +1,18 @@
-# Copyright 2013, Red Hat, Inc.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
-"""
-Client side of the scheduler manager RPC API.
-"""
-
+from bees import profiler as p
+'\nClient side of the scheduler manager RPC API.\n'
 import oslo_messaging as messaging
-
 import nova.conf
 from nova import exception as exc
 from nova.objects import base as objects_base
 from nova import profiler
 from nova import rpc
-
 CONF = nova.conf.CONF
-RPC_TOPIC = "scheduler"
+RPC_TOPIC = 'scheduler'
 
-
-@profiler.trace_cls("rpc")
+@p.trace_cls('SchedulerAPI')
+@profiler.trace_cls('rpc')
 class SchedulerAPI(object):
-    '''Client side of the scheduler rpc API.
+    """Client side of the scheduler rpc API.
 
     API version history:
 
@@ -105,43 +87,22 @@ class SchedulerAPI(object):
 
         * 4.5 - Modify select_destinations() to optionally return a list of
                 lists of Selection objects, along with zero or more alternates.
-    '''
-
-    VERSION_ALIASES = {
-        'grizzly': '2.6',
-        'havana': '2.9',
-        'icehouse': '3.0',
-        'juno': '3.0',
-        'kilo': '4.2',
-        'liberty': '4.2',
-        'mitaka': '4.3',
-        'newton': '4.3',
-        'ocata': '4.3',
-        'pike': '4.4',
-    }
+    """
+    VERSION_ALIASES = {'grizzly': '2.6', 'havana': '2.9', 'icehouse': '3.0', 'juno': '3.0', 'kilo': '4.2', 'liberty': '4.2', 'mitaka': '4.3', 'newton': '4.3', 'ocata': '4.3', 'pike': '4.4'}
 
     def __init__(self):
         super(SchedulerAPI, self).__init__()
         target = messaging.Target(topic=RPC_TOPIC, version='4.0')
-        version_cap = self.VERSION_ALIASES.get(CONF.upgrade_levels.scheduler,
-                                               CONF.upgrade_levels.scheduler)
+        version_cap = self.VERSION_ALIASES.get(CONF.upgrade_levels.scheduler, CONF.upgrade_levels.scheduler)
         serializer = objects_base.NovaObjectSerializer()
-        self.client = rpc.get_client(target, version_cap=version_cap,
-                                     serializer=serializer)
+        self.client = rpc.get_client(target, version_cap=version_cap, serializer=serializer)
 
-    def select_destinations(self, ctxt, spec_obj, instance_uuids,
-            return_objects=False, return_alternates=False):
-        # Modify the parameters if an older version is requested
+    def select_destinations(self, ctxt, spec_obj, instance_uuids, return_objects=False, return_alternates=False):
         version = '4.5'
-        msg_args = {'instance_uuids': instance_uuids,
-                    'spec_obj': spec_obj,
-                    'return_objects': return_objects,
-                    'return_alternates': return_alternates}
+        msg_args = {'instance_uuids': instance_uuids, 'spec_obj': spec_obj, 'return_objects': return_objects, 'return_alternates': return_alternates}
         if not self.client.can_send_version(version):
             if msg_args['return_objects'] or msg_args['return_alternates']:
-                # The client is requesting an RPC version we can't support.
-                raise exc.SelectionObjectsWithOldRPCVersionNotSupported(
-                        version=self.client.version_cap)
+                raise exc.SelectionObjectsWithOldRPCVersionNotSupported(version=self.client.version_cap)
             del msg_args['return_objects']
             del msg_args['return_alternates']
             version = '4.4'
@@ -151,35 +112,27 @@ class SchedulerAPI(object):
         if not self.client.can_send_version(version):
             del msg_args['spec_obj']
             msg_args['request_spec'] = spec_obj.to_legacy_request_spec_dict()
-            msg_args['filter_properties'
-                     ] = spec_obj.to_legacy_filter_properties_dict()
+            msg_args['filter_properties'] = spec_obj.to_legacy_filter_properties_dict()
             version = '4.0'
-        cctxt = self.client.prepare(
-            version=version, call_monitor_timeout=CONF.rpc_response_timeout,
-            timeout=CONF.long_rpc_timeout)
+        cctxt = self.client.prepare(version=version, call_monitor_timeout=CONF.rpc_response_timeout, timeout=CONF.long_rpc_timeout)
         return cctxt.call(ctxt, 'select_destinations', **msg_args)
 
     def update_aggregates(self, ctxt, aggregates):
-        # NOTE(sbauza): Yes, it's a fanout, we need to update all schedulers
         cctxt = self.client.prepare(fanout=True, version='4.1')
         cctxt.cast(ctxt, 'update_aggregates', aggregates=aggregates)
 
     def delete_aggregate(self, ctxt, aggregate):
-        # NOTE(sbauza): Yes, it's a fanout, we need to update all schedulers
         cctxt = self.client.prepare(fanout=True, version='4.1')
         cctxt.cast(ctxt, 'delete_aggregate', aggregate=aggregate)
 
     def update_instance_info(self, ctxt, host_name, instance_info):
         cctxt = self.client.prepare(version='4.2', fanout=True)
-        return cctxt.cast(ctxt, 'update_instance_info', host_name=host_name,
-                          instance_info=instance_info)
+        return cctxt.cast(ctxt, 'update_instance_info', host_name=host_name, instance_info=instance_info)
 
     def delete_instance_info(self, ctxt, host_name, instance_uuid):
         cctxt = self.client.prepare(version='4.2', fanout=True)
-        return cctxt.cast(ctxt, 'delete_instance_info', host_name=host_name,
-                          instance_uuid=instance_uuid)
+        return cctxt.cast(ctxt, 'delete_instance_info', host_name=host_name, instance_uuid=instance_uuid)
 
     def sync_instance_info(self, ctxt, host_name, instance_uuids):
         cctxt = self.client.prepare(version='4.2', fanout=True)
-        return cctxt.cast(ctxt, 'sync_instance_info', host_name=host_name,
-                          instance_uuids=instance_uuids)
+        return cctxt.cast(ctxt, 'sync_instance_info', host_name=host_name, instance_uuids=instance_uuids)

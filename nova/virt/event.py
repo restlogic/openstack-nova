@@ -1,29 +1,7 @@
-# Copyright 2013 Red Hat, Inc.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
-"""
-Asynchronous event notifications from virtualization drivers.
-
-This module defines a set of classes representing data for
-various asynchronous events that can occur in a virtualization
-driver.
-"""
-
+from bees import profiler as p
+'\nAsynchronous event notifications from virtualization drivers.\n\nThis module defines a set of classes representing data for\nvarious asynchronous events that can occur in a virtualization\ndriver.\n'
 import time
-
 from nova.i18n import _
-
 EVENT_LIFECYCLE_STARTED = 0
 EVENT_LIFECYCLE_STOPPED = 1
 EVENT_LIFECYCLE_PAUSED = 2
@@ -31,19 +9,9 @@ EVENT_LIFECYCLE_RESUMED = 3
 EVENT_LIFECYCLE_SUSPENDED = 4
 EVENT_LIFECYCLE_POSTCOPY_STARTED = 5
 EVENT_LIFECYCLE_MIGRATION_COMPLETED = 6
+NAMES = {EVENT_LIFECYCLE_STARTED: _('Started'), EVENT_LIFECYCLE_STOPPED: _('Stopped'), EVENT_LIFECYCLE_PAUSED: _('Paused'), EVENT_LIFECYCLE_RESUMED: _('Resumed'), EVENT_LIFECYCLE_SUSPENDED: _('Suspended'), EVENT_LIFECYCLE_POSTCOPY_STARTED: _('Postcopy started'), EVENT_LIFECYCLE_MIGRATION_COMPLETED: _('Migration completed')}
 
-
-NAMES = {
-    EVENT_LIFECYCLE_STARTED: _('Started'),
-    EVENT_LIFECYCLE_STOPPED: _('Stopped'),
-    EVENT_LIFECYCLE_PAUSED: _('Paused'),
-    EVENT_LIFECYCLE_RESUMED: _('Resumed'),
-    EVENT_LIFECYCLE_SUSPENDED: _('Suspended'),
-    EVENT_LIFECYCLE_POSTCOPY_STARTED: _('Postcopy started'),
-    EVENT_LIFECYCLE_MIGRATION_COMPLETED: _('Migration completed'),
-}
-
-
+@p.trace_cls('Event')
 class Event(object):
     """Base class for all events emitted by a hypervisor.
 
@@ -64,11 +32,9 @@ class Event(object):
         return self.timestamp
 
     def __repr__(self):
-        return "<%s: %s>" % (
-            self.__class__.__name__,
-            self.timestamp)
+        return '<%s: %s>' % (self.__class__.__name__, self.timestamp)
 
-
+@p.trace_cls('InstanceEvent')
 class InstanceEvent(Event):
     """Base class for all instance events.
 
@@ -80,19 +46,15 @@ class InstanceEvent(Event):
 
     def __init__(self, uuid, timestamp=None):
         super(InstanceEvent, self).__init__(timestamp)
-
         self.uuid = uuid
 
     def get_instance_uuid(self):
         return self.uuid
 
     def __repr__(self):
-        return "<%s: %s, %s>" % (
-            self.__class__.__name__,
-            self.timestamp,
-            self.uuid)
+        return '<%s: %s, %s>' % (self.__class__.__name__, self.timestamp, self.uuid)
 
-
+@p.trace_cls('LifecycleEvent')
 class LifecycleEvent(InstanceEvent):
     """Class for instance lifecycle state change events.
 
@@ -105,7 +67,6 @@ class LifecycleEvent(InstanceEvent):
 
     def __init__(self, uuid, transition, timestamp=None):
         super(LifecycleEvent, self).__init__(uuid, timestamp)
-
         self.transition = transition
 
     def get_transition(self):
@@ -115,8 +76,4 @@ class LifecycleEvent(InstanceEvent):
         return NAMES.get(self.transition, _('Unknown'))
 
     def __repr__(self):
-        return "<%s: %s, %s => %s>" % (
-            self.__class__.__name__,
-            self.timestamp,
-            self.uuid,
-            self.get_name())
+        return '<%s: %s, %s => %s>' % (self.__class__.__name__, self.timestamp, self.uuid, self.get_name())

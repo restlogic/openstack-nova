@@ -1,35 +1,16 @@
-# Copyright (c) 2013 Intel, Inc.
-# Copyright (c) 2013 OpenStack Foundation
-# All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
+from bees import profiler as p
 from oslo_config import cfg
 from oslo_log import log as logging
-
 from nova import exception
 from nova.objects import fields
 from nova.objects import pci_device_pool
 from nova.pci import utils
 from nova.pci import whitelist
-
-
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
-
+@p.trace_cls('PciDeviceStats')
 class PciDeviceStats(object):
-
     """PCI devices summary information.
 
     According to the PCI SR-IOV spec, a PCI physical function can have up to
@@ -51,22 +32,17 @@ class PciDeviceStats(object):
 
     This summary information will be helpful for cloud management also.
     """
-
     pool_keys = ['product_id', 'vendor_id', 'numa_node', 'dev_type']
 
     def __init__(self, numa_topology, stats=None, dev_filter=None):
         super(PciDeviceStats, self).__init__()
         self.numa_topology = numa_topology
-        # NOTE(sbauza): Stats are a PCIDevicePoolList object
-        self.pools = [pci_pool.to_dict()
-                      for pci_pool in stats] if stats else []
+        self.pools = [pci_pool.to_dict() for pci_pool in stats] if stats else []
         self.pools.sort(key=lambda item: len(item))
-        self.dev_filter = dev_filter or whitelist.Whitelist(
-            CONF.pci.passthrough_whitelist)
+        self.dev_filter = dev_filter or whitelist.Whitelist(CONF.pci.passthrough_whitelist)
 
     def _equal_properties(self, dev, entry, matching_keys):
-        return all(dev.get(prop) == entry.get(prop)
-                   for prop in matching_keys)
+        return all((dev.get(prop) == entry.get(prop) for prop in matching_keys))
 
     def _find_pool(self, dev_pool):
         """Return the first pool that matches dev."""
@@ -74,8 +50,7 @@ class PciDeviceStats(object):
             pool_keys = pool.copy()
             del pool_keys['count']
             del pool_keys['devices']
-            if (len(pool_keys.keys()) == len(dev_pool.keys()) and
-                self._equal_properties(dev_pool, pool_keys, dev_pool.keys())):
+            if len(pool_keys.keys()) == len(dev_pool.keys()) and self._equal_properties(dev_pool, pool_keys, dev_pool.keys()):
                 return pool
 
     def _create_pool_keys_from_dev(self, dev):
@@ -84,8 +59,6 @@ class PciDeviceStats(object):
         Note that this pool dict contains the stats pool's keys and their
         values. 'count' and 'devices' are not included.
         """
-        # Don't add a device that doesn't have a matching device spec.
-        # This can happen during initial sync up with the controller
         devspec = self.dev_filter.get_devspec(dev)
         if not devspec:
             return
@@ -93,12 +66,6 @@ class PciDeviceStats(object):
         pool = {k: getattr(dev, k) for k in self.pool_keys}
         if tags:
             pool.update(tags)
-        # NOTE(gibi): parent_ifname acts like a tag during pci claim but
-        # not provided as part of the whitelist spec as it is auto detected
-        # by the virt driver.
-        # This key is used for match InstancePciRequest backed by neutron ports
-        # that has resource_request and therefore that has resource allocation
-        # already in placement.
         if dev.extra_info.get('parent_ifname'):
             pool['parent_ifname'] = dev.extra_info['parent_ifname']
         return pool
@@ -112,10 +79,9 @@ class PciDeviceStats(object):
         for pool in self.pools:
             for device in pool['devices']:
                 if device.address == dev.address:
-                    if dev.dev_type != pool["dev_type"]:
-                        return pool, device
+                    if dev.dev_type != pool['dev_type']:
+                        return (pool, device)
                     return None
-
         return None
 
     def update_device(self, dev):
@@ -123,8 +89,7 @@ class PciDeviceStats(object):
         pool_device_info = self._get_pool_with_device_type_mismatch(dev)
         if pool_device_info is None:
             return
-
-        pool, device = pool_device_info
+        (pool, device) = pool_device_info
         pool['devices'].remove(device)
         self._decrease_pool_count(self.pools, pool)
         self.add_device(dev)
@@ -163,8 +128,7 @@ class PciDeviceStats(object):
         if dev_pool:
             pool = self._find_pool(dev_pool)
             if not pool:
-                raise exception.PciDevicePoolEmpty(
-                    compute_node_id=dev.compute_node_id, address=dev.address)
+                raise exception.PciDevicePoolEmpty(compute_node_id=dev.compute_node_id, address=dev.address)
             pool['devices'].remove(dev)
             self._decrease_pool_count(self.pools, pool)
 
@@ -178,23 +142,12 @@ class PciDeviceStats(object):
         alloc_devices = []
         for request in pci_requests:
             count = request.count
-
             pools = self._filter_pools(self.pools, request, numa_cells)
-
-            # Failed to allocate the required number of devices. Return the
-            # devices already allocated during previous iterations back to
-            # their pools
             if not pools:
-                LOG.error("Failed to allocate PCI devices for instance. "
-                          "Unassigning devices back to pools. "
-                          "This should not happen, since the scheduler "
-                          "should have accurate information, and allocation "
-                          "during claims is controlled via a hold "
-                          "on the compute node semaphore.")
+                LOG.error('Failed to allocate PCI devices for instance. Unassigning devices back to pools. This should not happen, since the scheduler should have accurate information, and allocation during claims is controlled via a hold on the compute node semaphore.')
                 for d in range(len(alloc_devices)):
                     self.add_device(alloc_devices.pop())
                 return None
-
             for pool in pools:
                 if pool['count'] >= count:
                     num_alloc = count
@@ -209,7 +162,6 @@ class PciDeviceStats(object):
                     alloc_devices.append(pci_dev)
                 if count == 0:
                     break
-
         return alloc_devices
 
     def _handle_device_dependents(self, pci_dev):
@@ -225,14 +177,9 @@ class PciDeviceStats(object):
             if vfs_list:
                 for vf in vfs_list:
                     self.remove_device(vf)
-        elif pci_dev.dev_type in (
-            fields.PciDeviceType.SRIOV_VF,
-            fields.PciDeviceType.VDPA,
-        ):
+        elif pci_dev.dev_type in (fields.PciDeviceType.SRIOV_VF, fields.PciDeviceType.VDPA):
             try:
                 parent = pci_dev.parent_device
-                # Make sure not to decrease PF pool count if this parent has
-                # been already removed from pools
                 if parent in self.get_free_devs():
                     self.remove_device(parent)
             except exception.PciDeviceNotFound:
@@ -252,10 +199,7 @@ class PciDeviceStats(object):
             this is possible.
         """
         request_specs = request.spec
-        return [
-            pool for pool in pools
-            if utils.pci_device_prop_match(pool, request_specs)
-        ]
+        return [pool for pool in pools if utils.pci_device_prop_match(pool, request_specs)]
 
     def _filter_pools_for_numa_cells(self, pools, request, numa_cells):
         """Filter out pools with the wrong NUMA affinity, if required.
@@ -279,94 +223,37 @@ class PciDeviceStats(object):
         """
         if not numa_cells:
             return pools
-
-        # we default to the 'legacy' policy for...of course...legacy reasons
         requested_policy = fields.PCINUMAAffinityPolicy.LEGACY
         if 'numa_policy' in request:
             requested_policy = request.numa_policy or requested_policy
-
         requested_count = request.count
         numa_cell_ids = [cell.id for cell in numa_cells]
-
-        # filter out pools which numa_node is not included in numa_cell_ids
-        filtered_pools = [
-            pool for pool in pools if any(utils.pci_device_prop_match(
-                pool, [{'numa_node': cell}]) for cell in numa_cell_ids)]
-
-        # we can't apply a less strict policy than the one requested, so we
-        # need to return if we've demanded a NUMA affinity of REQUIRED.
-        # However, NUMA affinity is a good thing. If we can get enough devices
-        # with the stricter policy then we will use them.
-        if requested_policy == fields.PCINUMAAffinityPolicy.REQUIRED or sum(
-                pool['count'] for pool in filtered_pools) >= requested_count:
+        filtered_pools = [pool for pool in pools if any((utils.pci_device_prop_match(pool, [{'numa_node': cell}]) for cell in numa_cell_ids))]
+        if requested_policy == fields.PCINUMAAffinityPolicy.REQUIRED or sum((pool['count'] for pool in filtered_pools)) >= requested_count:
             return filtered_pools
-
-        # the SOCKET policy is a bit of a special case. It's less strict than
-        # REQUIRED (so REQUIRED will automatically fulfil SOCKET, at least
-        # with our assumption of never having multiple sockets per NUMA node),
-        # but not always more strict than LEGACY: a PCI device with no NUMA
-        # affinity will fulfil LEGACY but not SOCKET. If we have SOCKET,
-        # process it here and don't continue.
         if requested_policy == fields.PCINUMAAffinityPolicy.SOCKET:
             return self._filter_pools_for_socket_affinity(pools, numa_cells)
-
-        # some systems don't report NUMA node info for PCI devices, in which
-        # case None is reported in 'pci_device.numa_node'. The LEGACY policy
-        # allows us to use these devices so we include None in the list of
-        # suitable NUMA cells.
         numa_cell_ids.append(None)
-
-        # filter out pools which numa_node is not included in numa_cell_ids
-        filtered_pools = [
-            pool for pool in pools if any(utils.pci_device_prop_match(
-                pool, [{'numa_node': cell}]) for cell in numa_cell_ids)]
-
-        # once again, we can't apply a less strict policy than the one
-        # requested, so we need to return if we've demanded a NUMA affinity of
-        # LEGACY. Similarly, we will also return if we have enough devices to
-        # satisfy this somewhat strict policy.
-        if requested_policy == fields.PCINUMAAffinityPolicy.LEGACY or sum(
-                pool['count'] for pool in filtered_pools) >= requested_count:
+        filtered_pools = [pool for pool in pools if any((utils.pci_device_prop_match(pool, [{'numa_node': cell}]) for cell in numa_cell_ids))]
+        if requested_policy == fields.PCINUMAAffinityPolicy.LEGACY or sum((pool['count'] for pool in filtered_pools)) >= requested_count:
             return filtered_pools
-
-        # if we've got here, we're using the PREFERRED policy and weren't able
-        # to provide anything with stricter affinity. Use whatever devices you
-        # can, folks.
-        return sorted(
-            pools, key=lambda pool: pool.get('numa_node') not in numa_cell_ids)
+        return sorted(pools, key=lambda pool: pool.get('numa_node') not in numa_cell_ids)
 
     def _filter_pools_for_socket_affinity(self, pools, numa_cells):
         host_cells = self.numa_topology.cells
-        # bail early if we don't have socket information for all host_cells.
-        # This could happen if we're running on an weird older system with
-        # multiple sockets per NUMA node, which is a configuration that we
-        # explicitly chose not to support.
-        if any(cell.socket is None for cell in host_cells):
+        if any((cell.socket is None for cell in host_cells)):
             LOG.debug('No socket information in host NUMA cell(s).')
             return []
-
-        # get a set of host sockets that the guest cells are in. Since guest
-        # cell IDs map to host cell IDs, we can just lookup the latter's
-        # socket.
         socket_ids = set()
         for guest_cell in numa_cells:
             for host_cell in host_cells:
                 if guest_cell.id == host_cell.id:
                     socket_ids.add(host_cell.socket)
-
-        # now get a set of host NUMA nodes that are in the above sockets
         allowed_numa_nodes = set()
         for host_cell in host_cells:
             if host_cell.socket in socket_ids:
                 allowed_numa_nodes.add(host_cell.id)
-
-        # filter out pools that are not in one of the correct host NUMA nodes.
-        return [
-            pool for pool in pools if any(
-                utils.pci_device_prop_match(pool, [{'numa_node': numa_node}])
-                for numa_node in allowed_numa_nodes
-            )
-        ]
+        return [pool for pool in pools if any((utils.pci_device_prop_match(pool, [{'numa_node': numa_node}]) for numa_node in allowed_numa_nodes))]
 
     def _filter_pools_for_unrequested_pfs(self, pools, request):
         """Filter out pools with PFs, unless these are required.
@@ -380,14 +267,8 @@ class PciDeviceStats(object):
         :returns: A list of pools that can be used to support the request if
             this is possible.
         """
-        if all(
-            spec.get('dev_type') != fields.PciDeviceType.SRIOV_PF
-            for spec in request.spec
-        ):
-            pools = [
-                pool for pool in pools
-                if not pool.get('dev_type') == fields.PciDeviceType.SRIOV_PF
-            ]
+        if all((spec.get('dev_type') != fields.PciDeviceType.SRIOV_PF for spec in request.spec)):
+            pools = [pool for pool in pools if not pool.get('dev_type') == fields.PciDeviceType.SRIOV_PF]
         return pools
 
     def _filter_pools_for_unrequested_vdpa_devices(self, pools, request):
@@ -402,14 +283,8 @@ class PciDeviceStats(object):
         :returns: A list of pools that can be used to support the request if
             this is possible.
         """
-        if all(
-            spec.get('dev_type') != fields.PciDeviceType.VDPA
-            for spec in request.spec
-        ):
-            pools = [
-                pool for pool in pools
-                if not pool.get('dev_type') == fields.PciDeviceType.VDPA
-            ]
+        if all((spec.get('dev_type') != fields.PciDeviceType.VDPA for spec in request.spec)):
+            pools = [pool for pool in pools if not pool.get('dev_type') == fields.PciDeviceType.VDPA]
         return pools
 
     def _filter_pools(self, pools, request, numa_cells):
@@ -429,77 +304,38 @@ class PciDeviceStats(object):
         :returns: A list of pools that can be used to support the request if
             this is possible, else None.
         """
-        # NOTE(vladikr): This code may be open to race conditions.
-        # Two concurrent requests may succeed when called support_requests
-        # because this method does not remove related devices from the pools
-
-        # Firstly, let's exclude all devices that don't match our spec (e.g.
-        # they've got different PCI IDs or something)
         before_count = sum([pool['count'] for pool in pools])
         pools = self._filter_pools_for_spec(pools, request)
         after_count = sum([pool['count'] for pool in pools])
-
         if after_count < before_count:
-            LOG.debug(
-                'Dropped %d device(s) due to mismatched PCI attribute(s)',
-                before_count - after_count
-            )
-
+            LOG.debug('Dropped %d device(s) due to mismatched PCI attribute(s)', before_count - after_count)
         if after_count < request.count:
             LOG.debug('Not enough PCI devices left to satisfy request')
             return None
-
-        # Next, let's exclude all devices that aren't on the correct NUMA node
-        # or socket, *assuming* we have devices and care about that, as
-        # determined by policy
         before_count = after_count
         pools = self._filter_pools_for_numa_cells(pools, request, numa_cells)
         after_count = sum([pool['count'] for pool in pools])
-
         if after_count < before_count:
-            LOG.debug(
-                'Dropped %d device(s) as they are on the wrong NUMA node(s)',
-                before_count - after_count
-            )
-
+            LOG.debug('Dropped %d device(s) as they are on the wrong NUMA node(s)', before_count - after_count)
         if after_count < request.count:
             LOG.debug('Not enough PCI devices left to satisfy request')
             return None
-
-        # If we're not requesting PFs then we should not use these.
-        # Exclude them.
         before_count = after_count
         pools = self._filter_pools_for_unrequested_pfs(pools, request)
         after_count = sum([pool['count'] for pool in pools])
-
         if after_count < before_count:
-            LOG.debug(
-                'Dropped %d device(s) as they are PFs which we have not '
-                'requested',
-                before_count - after_count
-            )
-
+            LOG.debug('Dropped %d device(s) as they are PFs which we have not requested', before_count - after_count)
         if after_count < request.count:
             LOG.debug('Not enough PCI devices left to satisfy request')
             return None
-
-        # If we're not requesting VDPA devices then we should not use these
-        # either. Exclude them.
         before_count = after_count
         pools = self._filter_pools_for_unrequested_vdpa_devices(pools, request)
         after_count = sum([pool['count'] for pool in pools])
-
         if after_count < before_count:
-            LOG.debug(
-                'Dropped %d device(s) as they are VDPA devices which we have '
-                'not requested',
-                before_count - after_count
-            )
-
+            LOG.debug('Dropped %d device(s) as they are VDPA devices which we have not requested', before_count - after_count)
         if after_count < request.count:
             LOG.debug('Not enough PCI devices left to satisfy request')
             return None
-
         return pools
 
     def support_requests(self, requests, numa_cells=None):
@@ -518,11 +354,7 @@ class PciDeviceStats(object):
             corresponds to the ``id`` of host NUMACells, or None.
         :returns: Whether this compute node can satisfy the given request.
         """
-        # NOTE(yjiang5): this function has high possibility to fail,
-        # so no exception should be triggered for performance reason.
-        return all(
-            self._filter_pools(self.pools, r, numa_cells) for r in requests
-        )
+        return all((self._filter_pools(self.pools, r, numa_cells) for r in requests))
 
     def _apply_request(self, pools, request, numa_cells=None):
         """Apply an individual PCI request.
@@ -541,21 +373,14 @@ class PciDeviceStats(object):
         :returns: True if the request was applied against the provided pools
             successfully, else False.
         """
-        # NOTE(vladikr): This code maybe open to race conditions.
-        # Two concurrent requests may succeed when called support_requests
-        # because this method does not remove related devices from the pools
-
         filtered_pools = self._filter_pools(pools, request, numa_cells)
-
         if not filtered_pools:
             return False
-
         count = request.count
         for pool in filtered_pools:
             count = self._decrease_pool_count(pools, pool, count)
             if not count:
                 break
-
         return True
 
     def apply_requests(self, requests, numa_cells=None):
@@ -575,16 +400,13 @@ class PciDeviceStats(object):
         :raises: exception.PciDeviceRequestFailed if this compute node cannot
             satisfy the given request.
         """
-        if not all(
-            self._apply_request(self.pools, r, numa_cells) for r in requests
-        ):
+        if not all((self._apply_request(self.pools, r, numa_cells) for r in requests)):
             raise exception.PciDeviceRequestFailed(requests=requests)
 
     def __iter__(self):
-        # 'devices' shouldn't be part of stats
         pools = []
         for pool in self.pools:
-            tmp = {k: v for k, v in pool.items() if k != 'devices'}
+            tmp = {k: v for (k, v) in pool.items() if k != 'devices'}
             pools.append(tmp)
         return iter(pools)
 

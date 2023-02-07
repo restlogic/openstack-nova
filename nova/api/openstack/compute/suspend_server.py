@@ -19,8 +19,9 @@ from nova.api.openstack import wsgi
 from nova.compute import api as compute
 from nova import exception
 from nova.policies import suspend_server as ss_policies
+from bees import profiler as p
 
-
+@p.trace_cls("SuspendServerController")
 class SuspendServerController(wsgi.Controller):
     def __init__(self):
         super(SuspendServerController, self).__init__()

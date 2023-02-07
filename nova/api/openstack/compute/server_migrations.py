@@ -24,8 +24,9 @@ from nova.compute import api as compute
 from nova import exception
 from nova.i18n import _
 from nova.policies import servers_migrations as sm_policies
+from bees import profiler as p
 
-
+@p.trace("output")
 def output(migration, include_uuid=False, include_user_project=False):
     """Returns the desired output of the API from an object.
 
@@ -58,6 +59,7 @@ def output(migration, include_uuid=False, include_user_project=False):
     return result
 
 
+@p.trace_cls("ServerMigrationsController")
 class ServerMigrationsController(wsgi.Controller):
     """The server migrations API controller for the OpenStack API."""
 

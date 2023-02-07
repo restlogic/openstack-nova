@@ -1,26 +1,10 @@
-# Copyright (c) 2013 Intel, Inc.
-# Copyright (c) 2013 OpenStack Foundation
-# All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
+from bees import profiler as p
 from oslo_serialization import jsonutils
-
 from nova import exception
 from nova.i18n import _
 from nova.pci import devspec
 
-
+@p.trace_cls('Whitelist')
 class Whitelist(object):
     """White list class to represent assignable pci devices.
 
@@ -57,24 +41,16 @@ class Whitelist(object):
             try:
                 dev_spec = jsonutils.loads(jsonspec)
             except ValueError:
-                raise exception.PciConfigInvalidWhitelist(
-                          reason=_("Invalid entry: '%s'") % jsonspec)
+                raise exception.PciConfigInvalidWhitelist(reason=_("Invalid entry: '%s'") % jsonspec)
             if isinstance(dev_spec, dict):
                 dev_spec = [dev_spec]
             elif not isinstance(dev_spec, list):
-                raise exception.PciConfigInvalidWhitelist(
-                          reason=_("Invalid entry: '%s'; "
-                                   "Expecting list or dict") % jsonspec)
-
+                raise exception.PciConfigInvalidWhitelist(reason=_("Invalid entry: '%s'; Expecting list or dict") % jsonspec)
             for ds in dev_spec:
                 if not isinstance(ds, dict):
-                    raise exception.PciConfigInvalidWhitelist(
-                              reason=_("Invalid entry: '%s'; "
-                                       "Expecting dict") % ds)
-
+                    raise exception.PciConfigInvalidWhitelist(reason=_("Invalid entry: '%s'; Expecting dict") % ds)
                 spec = devspec.PciDeviceSpec(ds)
                 specs.append(spec)
-
         return specs
 
     def device_assignable(self, dev):

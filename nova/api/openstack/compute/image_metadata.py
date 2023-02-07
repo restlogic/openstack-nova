@@ -25,8 +25,10 @@ from nova.api import validation
 from nova import exception
 from nova.i18n import _
 from nova.image import glance
+from bees import profiler as p
 
 
+@p.trace_cls("ImageMetadataController")
 class ImageMetadataController(wsgi.Controller):
     """The image metadata API controller for the OpenStack API."""
 

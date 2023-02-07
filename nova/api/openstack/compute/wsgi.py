@@ -13,8 +13,11 @@
 
 from nova.api.openstack import wsgi_app
 
+from bees import initializer
+
 NAME = "osapi_compute"
 
 
 def init_application():
+    initializer.init_from_conf('nova-osapi-compute-wsgi', eventlet=True, eventlet_scope_manager=True)
     return wsgi_app.init_application(NAME)

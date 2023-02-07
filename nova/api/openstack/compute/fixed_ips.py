@@ -15,8 +15,9 @@
 from webob import exc
 
 from nova.api.openstack import wsgi
+from bees import profiler as p
 
-
+@p.trace_cls("FixedIPController")
 class FixedIPController(wsgi.Controller):
 
     @wsgi.expected_errors((410))

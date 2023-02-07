@@ -14,7 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
+from bees import profiler as p
+@p.trace_cls("VendorDataDriver")
 class VendorDataDriver(object):
     """The base VendorData Drivers should inherit from."""
 

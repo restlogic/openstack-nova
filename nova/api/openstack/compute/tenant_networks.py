@@ -26,7 +26,7 @@ from nova.i18n import _
 from nova.network import neutron
 from nova.policies import tenant_networks as tn_policies
 from nova import quota
-
+from bees import profiler as p
 
 CONF = nova.conf.CONF
 
@@ -34,6 +34,7 @@ QUOTAS = quota.QUOTAS
 LOG = logging.getLogger(__name__)
 
 
+@p.trace("network_dict")
 def network_dict(network):
     # convert from a neutron response to something resembling what we used to
     # produce with nova-network
@@ -47,6 +48,7 @@ def network_dict(network):
     }
 
 
+@p.trace_cls("TenantNetworkController")
 class TenantNetworkController(wsgi.Controller):
     def __init__(self):
         super(TenantNetworkController, self).__init__()

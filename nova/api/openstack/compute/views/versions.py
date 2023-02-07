@@ -16,13 +16,15 @@
 import copy
 
 from nova.api.openstack import common
+from bees import profiler as p
 
-
+@p.trace("get_view_builder")
 def get_view_builder(req):
     base_url = req.application_url
     return ViewBuilder(base_url)
 
 
+@p.trace_cls("ViewBuilder")
 class ViewBuilder(common.ViewBuilder):
 
     def __init__(self, base_url):

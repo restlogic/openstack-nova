@@ -44,6 +44,8 @@ from nova.network import neutron
 from nova import objects
 from nova.policies import servers as server_policies
 from nova import utils
+from bees import profiler as p
+
 
 TAG_SEARCH_FILTERS = ('tags', 'tags-any', 'not-tags', 'not-tags-any')
 PARTIAL_CONSTRUCT_FOR_CELL_DOWN_MIN_VERSION = '2.69'
@@ -92,6 +94,7 @@ INVALID_FLAVOR_IMAGE_EXCEPTIONS = (
 )
 
 
+@p.trace_cls("ServersController")
 class ServersController(wsgi.Controller):
     """The Server API base controller class for the OpenStack API."""
 
@@ -1436,6 +1439,7 @@ class ServersController(wsgi.Controller):
                 'trigger_crash_dump', id)
 
 
+@p.trace("remove_invalid_options")
 def remove_invalid_options(context, search_options, allowed_search_options):
     """Remove search options that are not permitted unless policy allows."""
 
@@ -1455,6 +1459,7 @@ def remove_invalid_options(context, search_options, allowed_search_options):
             search_options.pop(opt, None)
 
 
+@p.trace("remove_invalid_sort_keys")
 def remove_invalid_sort_keys(context, sort_keys, sort_dirs,
                              blacklist, admin_only_fields):
     key_list = copy.deepcopy(sort_keys)

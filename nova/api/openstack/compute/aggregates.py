@@ -32,14 +32,17 @@ from nova import exception
 from nova.i18n import _
 from nova.policies import aggregates as aggr_policies
 from nova import utils
+from bees import profiler as p
 
 LOG = logging.getLogger(__name__)
 
 
+@p.trace("_get_context")
 def _get_context(req):
     return req.environ['nova.context']
 
 
+@p.trace_cls("AggregateController")
 class AggregateController(wsgi.Controller):
     """The Host Aggregates API controller for the OpenStack API."""
     def __init__(self):

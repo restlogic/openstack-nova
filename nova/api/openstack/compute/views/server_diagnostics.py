@@ -11,6 +11,7 @@
 #    under the License.
 
 from nova.api.openstack import common
+from bees import profiler as p
 
 INSTANCE_DIAGNOSTICS_PRIMITIVE_FIELDS = (
     'state', 'driver', 'hypervisor', 'hypervisor_os', 'uptime', 'config_drive',
@@ -29,6 +30,7 @@ INSTANCE_DIAGNOSTICS_LIST_FIELDS = {
 INSTANCE_DIAGNOSTICS_OBJECT_FIELDS = {'memory_details': ('maximum', 'used')}
 
 
+@p.trace_cls("ViewBuilderViewBuilder")
 class ViewBuilder(common.ViewBuilder):
     @staticmethod
     def _get_obj_field(obj, field):

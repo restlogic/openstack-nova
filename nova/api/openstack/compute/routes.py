@@ -86,8 +86,10 @@ from nova.api.openstack.compute import virtual_interfaces
 from nova.api.openstack.compute import volumes
 from nova.api.openstack import wsgi
 from nova.api import wsgi as base_wsgi
+from bees import profiler as p
 
 
+@p.trace("_create_controller")
 def _create_controller(main_controller, action_controller_list):
     """This is a helper method to create controller with a
     list of action controller.
@@ -843,6 +845,7 @@ ROUTE_LIST = (
 )
 
 
+@p.trace_cls("APIRouterV21")
 class APIRouterV21(base_wsgi.Router):
     """Routes requests on the OpenStack API to the appropriate controller
     and method. The URL mapping based on the plain list `ROUTE_LIST` is built

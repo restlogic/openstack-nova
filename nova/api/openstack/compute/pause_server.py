@@ -20,8 +20,9 @@ from nova.api.openstack import wsgi
 from nova.compute import api as compute
 from nova import exception
 from nova.policies import pause_server as ps_policies
+from bees import profiler as p
 
-
+@p.trace_cls("PauseServerController")
 class PauseServerController(wsgi.Controller):
     def __init__(self):
         super(PauseServerController, self).__init__()

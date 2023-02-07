@@ -18,7 +18,10 @@ import itertools
 
 from nova.api.openstack import common
 
+from bees import profiler as p
 
+
+@p.trace_cls("ViewBuilder")
 class ViewBuilder(common.ViewBuilder):
     """Models server addresses as a dictionary."""
 

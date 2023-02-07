@@ -52,6 +52,8 @@ from nova import exception
 from nova.i18n import _
 from nova import safe_utils
 
+from bees import profiler as p
+
 profiler = importutils.try_import('osprofiler.profiler')
 
 
@@ -88,6 +90,7 @@ else:
 
 # NOTE(mikal): this seems to have to stay for now to handle os-brick
 # requirements. This makes me a sad panda.
+@p.trace("get_root_helper")
 def get_root_helper():
     if CONF.workarounds.disable_rootwrap:
         cmd = 'sudo'
@@ -96,6 +99,7 @@ def get_root_helper():
     return cmd
 
 
+@p.trace("ssh_execute")
 def ssh_execute(dest, *cmd, **kwargs):
     """Convenience wrapper to execute ssh command."""
     ssh_cmd = ['ssh', '-o', 'BatchMode=yes']
@@ -104,11 +108,13 @@ def ssh_execute(dest, *cmd, **kwargs):
     return processutils.execute(*ssh_cmd, **kwargs)
 
 
+@p.trace("generate_uid")
 def generate_uid(topic, size=8):
     random_string = generate_random_string(size)
     return '%s-%s' % (topic, random_string)
 
 
+@p.trace("generate_random_string")
 def generate_random_string(size=8):
     characters = '01234567890abcdefghijklmnopqrstuvwxyz'
     return ''.join([random.choice(characters) for _x in range(size)])
@@ -121,6 +127,7 @@ DEFAULT_PASSWORD_SYMBOLS = ('23456789',  # Removed: 0,1
                             'abcdefghijkmnopqrstuvwxyz')  # Removed: l
 
 
+@p.trace("last_completed_audit_period")
 def last_completed_audit_period(unit=None, before=None):
     """This method gives you the most recently *completed* audit period.
 
@@ -211,6 +218,7 @@ def last_completed_audit_period(unit=None, before=None):
     return (begin, end)
 
 
+@p.trace("generate_password")
 def generate_password(length=None, symbolgroups=DEFAULT_PASSWORD_SYMBOLS):
     """Generate a random password from the supplied symbol groups.
 
@@ -264,6 +272,7 @@ def utf8(value):
     return value.encode('utf-8')
 
 
+@p.trace("parse_server_string")
 def parse_server_string(server_str):
     """Parses the given server_string and returns a tuple of host and port.
     If it's not a combination of host part and port, the port element
@@ -293,16 +302,19 @@ def parse_server_string(server_str):
         return ('', '')
 
 
+@p.trace("get_shortened_ipv6")
 def get_shortened_ipv6(address):
     addr = netaddr.IPAddress(address, version=6)
     return str(addr.ipv6())
 
 
+@p.trace("get_shortened_ipv6_cidr")
 def get_shortened_ipv6_cidr(address):
     net = netaddr.IPNetwork(address, version=6)
     return str(net.cidr)
 
 
+@p.trace("safe_ip_format")
 def safe_ip_format(ip):
     """Transform ip string to "safe" format.
 
@@ -318,6 +330,7 @@ def safe_ip_format(ip):
     return ip
 
 
+@p.trace("format_remote_path")
 def format_remote_path(host, path):
     """Returns remote path in format acceptable for scp/rsync.
 
@@ -332,6 +345,7 @@ def format_remote_path(host, path):
     return "%s:%s" % (safe_ip_format(host), path)
 
 
+@p.trace("make_dev_path")
 def make_dev_path(dev, partition=None, base='/dev'):
     """Return a path to a particular device.
 
@@ -347,6 +361,7 @@ def make_dev_path(dev, partition=None, base='/dev'):
     return path
 
 
+@p.trace("sanitize_hostname")
 def sanitize_hostname(hostname, default_name=None):
     """Sanitize a given hostname.
 
@@ -383,6 +398,7 @@ def sanitize_hostname(hostname, default_name=None):
     return hostname
 
 
+@p.trace("temporary_mutation")
 @contextlib.contextmanager
 def temporary_mutation(obj, **kwargs):
     """Temporarily set the attr on a particular object to a given value then
@@ -432,6 +448,7 @@ def temporary_mutation(obj, **kwargs):
                 set_value(obj, attr, old_value)
 
 
+@p.trace("generate_mac_address")
 def generate_mac_address():
     """Generate an Ethernet MAC address."""
     # NOTE(vish): We would prefer to use 0xfe here to ensure that linux
@@ -451,6 +468,7 @@ def generate_mac_address():
 # to implement what the callers of this method want with privsep. Basically,
 # if we could hand off either a file descriptor or a file like object then
 # we could make this go away.
+@p.trace("temporary_chown")
 @contextlib.contextmanager
 def temporary_chown(path, owner_uid=None):
     """Temporarily chown a path.
@@ -471,6 +489,7 @@ def temporary_chown(path, owner_uid=None):
             nova.privsep.path.chown(path, uid=orig_uid)
 
 
+@p.trace("tempdir")
 @contextlib.contextmanager
 def tempdir(**kwargs):
     argdict = kwargs.copy()
@@ -486,6 +505,7 @@ def tempdir(**kwargs):
             LOG.error('Could not remove tmpdir: %s', e)
 
 
+@p.trace_cls("UndoManger")
 class UndoManager(object):
     """Provides a mechanism to facilitate rolling back a series of actions
     when an exception is raised.
@@ -513,6 +533,7 @@ class UndoManager(object):
             self._rollback()
 
 
+@p.trace("metadata_to_dict")
 def metadata_to_dict(metadata, include_deleted=False):
     result = {}
     for item in metadata:
@@ -522,6 +543,7 @@ def metadata_to_dict(metadata, include_deleted=False):
     return result
 
 
+@p.trace("dict_to_metadata")
 def dict_to_metadata(metadata):
     result = []
     for key, value in metadata.items():
@@ -529,6 +551,7 @@ def dict_to_metadata(metadata):
     return result
 
 
+@p.trace("instance_meta")
 def instance_meta(instance):
     if isinstance(instance['metadata'], dict):
         return instance['metadata']
@@ -538,6 +561,7 @@ def instance_meta(instance):
 
 # TODO(stephenfin): Instance.system_metadata is always a dict now (thanks,
 # o.vo) so this check (and the function as a whole) can be removed
+@p.trace("instance_sys_meta")
 def instance_sys_meta(instance):
     if not instance.get('system_metadata'):
         return {}
@@ -548,6 +572,7 @@ def instance_sys_meta(instance):
                                 include_deleted=True)
 
 
+@p.trace("expects_func_args")
 def expects_func_args(*args):
     def _decorator_checker(dec):
         @functools.wraps(dec)
@@ -569,6 +594,7 @@ def expects_func_args(*args):
     return _decorator_checker
 
 
+@p.trace_cls("ExceptionHelper")
 class ExceptionHelper(object):
     """Class to wrap another and translate the ClientExceptions raised by its
     function calls to the actual ones.
@@ -589,6 +615,7 @@ class ExceptionHelper(object):
         return wrapper
 
 
+@p.trace("check_string_length")
 def check_string_length(value, name=None, min_length=0, max_length=None):
     """Check the length of specified string
     :param value: the value of the string
@@ -604,6 +631,7 @@ def check_string_length(value, name=None, min_length=0, max_length=None):
         raise exception.InvalidInput(message=exc.args[0])
 
 
+@p.trace("validate_integer")
 def validate_integer(value, name, min_value=None, max_value=None):
     """Make sure that value is a valid integer, potentially within range.
 
@@ -620,6 +648,7 @@ def validate_integer(value, name, min_value=None, max_value=None):
         raise exception.InvalidInput(reason=str(e))
 
 
+@p.trace("_serialize_profile_info")
 def _serialize_profile_info():
     if not profiler:
         return None
@@ -636,6 +665,7 @@ def _serialize_profile_info():
     return trace_info
 
 
+@p.trace("spawn")
 def spawn(func, *args, **kwargs):
     """Passthrough method for eventlet.spawn.
 
@@ -662,6 +692,7 @@ def spawn(func, *args, **kwargs):
     return eventlet.spawn(context_wrapper, *args, **kwargs)
 
 
+@p.trace("spawn_n")
 def spawn_n(func, *args, **kwargs):
     """Passthrough method for eventlet.spawn_n.
 
@@ -688,11 +719,13 @@ def spawn_n(func, *args, **kwargs):
     eventlet.spawn_n(context_wrapper, *args, **kwargs)
 
 
+@p.trace("tpool_execute")
 def tpool_execute(func, *args, **kwargs):
     """Run func in a native thread"""
     eventlet.tpool.execute(func, *args, **kwargs)
 
 
+@p.trace("is_none_string")
 def is_none_string(val):
     """Check if a string represents a None value.
     """
@@ -702,6 +735,7 @@ def is_none_string(val):
     return val.lower() == 'none'
 
 
+@p.trace("is_auto_disk_config_disabled")
 def is_auto_disk_config_disabled(auto_disk_config_raw):
     auto_disk_config_disabled = False
     if auto_disk_config_raw is not None:
@@ -711,16 +745,19 @@ def is_auto_disk_config_disabled(auto_disk_config_raw):
     return auto_disk_config_disabled
 
 
+@p.trace("get_auto_disk_config_from_instance")
 def get_auto_disk_config_from_instance(instance=None, sys_meta=None):
     if sys_meta is None:
         sys_meta = instance_sys_meta(instance)
     return sys_meta.get("image_auto_disk_config")
 
 
+@p.trace("get_auto_disk_config_from_image_props")
 def get_auto_disk_config_from_image_props(image_properties):
     return image_properties.get("auto_disk_config")
 
 
+@p.trace("get_system_metadata_from_image")
 def get_system_metadata_from_image(image_meta, flavor=None):
     system_meta = {}
     prefix_format = SM_IMAGE_PROP_PREFIX + '%s'
@@ -749,6 +786,7 @@ def get_system_metadata_from_image(image_meta, flavor=None):
     return system_meta
 
 
+@p.trace("get_image_from_system_metadata")
 def get_image_from_system_metadata(system_meta):
     image_meta = {}
     properties = {}
@@ -778,6 +816,7 @@ def get_image_from_system_metadata(system_meta):
     return image_meta
 
 
+@p.trace("get_hash_str")
 def get_hash_str(base_str):
     """Returns string that represents MD5 hash of base_str (in hex format).
 
@@ -788,6 +827,7 @@ def get_hash_str(base_str):
     return md5(base_str, usedforsecurity=False).hexdigest()
 
 
+@p.trace("get_sha256_str")
 def get_sha256_str(base_str):
     """Returns string that represents sha256 hash of base_str (in hex format).
 
@@ -801,6 +841,7 @@ def get_sha256_str(base_str):
     return hashlib.sha256(base_str).hexdigest()
 
 
+@p.trace("get_obj_repr_unicode")
 def get_obj_repr_unicode(obj):
     """Returns a string representation of an object converted to unicode.
 
@@ -811,6 +852,7 @@ def get_obj_repr_unicode(obj):
     return obj_repr
 
 
+@p.trace("safe_truncate")
 def safe_truncate(value, length):
     """Safely truncates unicode strings such that their encoded length is
     no greater than the length provided.
@@ -831,6 +873,7 @@ def safe_truncate(value, length):
     return u_value
 
 
+@p.trace("read_cached_file")
 def read_cached_file(filename, force_reload=False):
     """Read from a file if it has been modified.
 
@@ -856,6 +899,7 @@ def read_cached_file(filename, force_reload=False):
     return (reloaded, cache_info['data'])
 
 
+@p.trace("delete_cached_file")
 def delete_cached_file(filename):
     """Delete cached file if present.
 
@@ -867,6 +911,7 @@ def delete_cached_file(filename):
         del _FILE_CACHE[filename]
 
 
+@p.trace("isotime")
 def isotime(at=None):
     """Current time as ISO string,
     as timeutils.isotime() is deprecated
@@ -885,6 +930,7 @@ def strtime(at):
     return at.strftime("%Y-%m-%dT%H:%M:%S.%f")
 
 
+@p.trace("_get_conf_group")
 def _get_conf_group(service_type):
     # Get the conf group corresponding to the service type.
     confgrp = _SERVICE_TYPES.get_project_name(service_type)
@@ -899,6 +945,7 @@ def _get_conf_group(service_type):
     return confgrp
 
 
+@p.trace("_get_auth_and_session")
 def _get_auth_and_session(confgrp, ksa_auth=None, ksa_session=None):
     # Ensure we have an auth.
     # NOTE(efried): This could be None, and that could be okay - e.g. if the
@@ -917,6 +964,7 @@ def _get_auth_and_session(confgrp, ksa_auth=None, ksa_session=None):
     return ksa_auth, ksa_session
 
 
+@p.trace("get_ksa_adapter")
 def get_ksa_adapter(service_type, ksa_auth=None, ksa_session=None,
                     min_version=None, max_version=None):
     """Construct a keystoneauth1 Adapter for a given service type.
@@ -960,6 +1008,7 @@ def get_ksa_adapter(service_type, ksa_auth=None, ksa_session=None,
         min_version=min_version, max_version=max_version, raise_exc=False)
 
 
+@p.trace("get_sdk_adapter")
 def get_sdk_adapter(service_type, check_service=False):
     """Construct an openstacksdk-brokered Adapter for a given service type.
 
@@ -989,6 +1038,7 @@ def get_sdk_adapter(service_type, check_service=False):
     return getattr(conn, service_type)
 
 
+@p.trace("get_endpoint")
 def get_endpoint(ksa_adapter):
     """Get the endpoint URL represented by a keystoneauth1 Adapter.
 
@@ -1019,6 +1069,7 @@ def get_endpoint(ksa_adapter):
     return ksa_adapter.get_endpoint()
 
 
+@p.trace("generate_hostid")
 def generate_hostid(host, project_id):
     """Generate an obfuscated host id representing the host.
 
@@ -1036,12 +1087,14 @@ def generate_hostid(host, project_id):
     return ""
 
 
+@p.trace("nested_contexts")
 @contextlib.contextmanager
 def nested_contexts(*contexts):
     with contextlib.ExitStack() as stack:
         yield [stack.enter_context(c) for c in contexts]
 
 
+@p.trace("normalize_rc_name")
 def normalize_rc_name(rc_name):
     """Normalize a resource class name to standard form."""
     if rc_name is None:
@@ -1054,6 +1107,7 @@ def normalize_rc_name(rc_name):
     return norm_name
 
 
+@p.trace("raise_if_old_compute")
 def raise_if_old_compute():
     # to avoid circular imports
     from nova import context as nova_context
@@ -1104,6 +1158,7 @@ def raise_if_old_compute():
             oldest_supported_service=oldest_supported_service_level)
 
 
+@p.trace("run_once")
 def run_once(message, logger, cleanup=None):
     """This is a utility function decorator to ensure a function
     is run once and only once in an interpreter instance.

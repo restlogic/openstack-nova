@@ -28,10 +28,11 @@ from nova import exception
 from nova.i18n import _
 from nova.network import neutron
 from nova.policies import migrate_server as ms_policies
-
+from bees import profiler as p
 LOG = logging.getLogger(__name__)
 
 
+@p.trace_cls("MigrateServerController")
 class MigrateServerController(wsgi.Controller):
     def __init__(self):
         super(MigrateServerController, self).__init__()

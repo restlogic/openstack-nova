@@ -21,10 +21,11 @@ from nova import context as nova_context
 from nova.i18n import _
 from nova import objects
 from nova.policies import console_auth_tokens as cat_policies
-
+from bees import profiler as p
 CONF = nova.conf.CONF
 
 
+@p.trace_cls("ConsoleAuthTokensController")
 class ConsoleAuthTokensController(wsgi.Controller):
 
     def _show(self, req, id, rdp_only):

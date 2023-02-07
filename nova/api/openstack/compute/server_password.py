@@ -20,8 +20,9 @@ from nova.api.openstack import common
 from nova.api.openstack import wsgi
 from nova.compute import api as compute
 from nova.policies import server_password as sp_policies
+from bees import profiler as p
 
-
+@p.trace_cls("ServerPasswordController")
 class ServerPasswordController(wsgi.Controller):
     """The Server Password API controller for the OpenStack API."""
     def __init__(self):

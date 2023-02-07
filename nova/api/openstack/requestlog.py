@@ -22,6 +22,8 @@ import webob.exc
 from nova.api.openstack import wsgi
 from nova.api import wsgi as base_wsgi
 
+from bees import profiler as p
+
 # TODO(sdague) maybe we can use a better name here for the logger
 LOG = logging.getLogger(__name__)
 

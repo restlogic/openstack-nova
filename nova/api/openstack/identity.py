@@ -19,10 +19,12 @@ import webob
 from nova.i18n import _
 from nova import utils
 
+from bees import profiler as p
 
 LOG = logging.getLogger(__name__)
 
 
+@p.trace("verify_project_id")
 def verify_project_id(context, project_id):
     """verify that a project_id exists.
 

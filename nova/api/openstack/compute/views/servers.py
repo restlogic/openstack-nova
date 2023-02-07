@@ -35,11 +35,12 @@ from nova.policies import extended_server_attributes as esa_policies
 from nova.policies import flavor_extra_specs as fes_policies
 from nova.policies import servers as servers_policies
 from nova import utils
-
+from bees import profiler as p
 
 LOG = logging.getLogger(__name__)
 
 
+@p.trace_cls("ViewBuilder")
 class ViewBuilder(common.ViewBuilder):
     """Model a server API response as a python dictionary."""
 

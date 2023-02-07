@@ -18,8 +18,9 @@ import webob.exc
 from nova.api.openstack.compute import versions
 from nova.api.openstack.compute.views import versions as views_versions
 from nova.api.openstack import wsgi
+from bees import profiler as p
 
-
+@p.trace_cls("VersionsController")
 class VersionsController(wsgi.Controller):
     @wsgi.expected_errors(404)
     def show(self, req, id='v2.1'):

@@ -24,8 +24,9 @@ from nova.api import validation
 from nova.compute import api as compute
 from nova import exception
 from nova.policies import multinic as multinic_policies
+from bees import profiler as p
 
-
+@p.trace_cls("MultinicController")
 class MultinicController(wsgi.Controller):
     """This API is deprecated from Microversion '2.44'."""
 

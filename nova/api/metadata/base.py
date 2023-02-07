@@ -39,6 +39,7 @@ from nova.objects import virt_device_metadata as metadata_obj
 from nova import utils
 from nova.virt import netutils
 
+from bees import profiler as p
 
 CONF = nova.conf.CONF
 
@@ -106,7 +107,7 @@ class InvalidMetadataVersion(Exception):
 class InvalidMetadataPath(Exception):
     pass
 
-
+@p.trace_cls("InstanceMetadata")
 class InstanceMetadata(object):
     """Instance metadata."""
 
@@ -625,7 +626,7 @@ class InstanceMetadata(object):
         for (cid, content) in self.content.items():
             yield ('%s/%s/%s' % ("openstack", CONTENT_DIR, cid), content)
 
-
+@p.trace_cls("RouteConfiguration")
 class RouteConfiguration(object):
     """Routes metadata paths to request handlers."""
 
@@ -655,7 +656,7 @@ class RouteConfiguration(object):
 
         return path_handler(version, path)
 
-
+@p.trace("get_metadata_by_address")
 def get_metadata_by_address(address):
     ctxt = context.get_admin_context()
     fixed_ip = neutron.API().get_fixed_ip_by_address(ctxt, address)
@@ -666,7 +667,7 @@ def get_metadata_by_address(address):
                                        address,
                                        ctxt)
 
-
+@p.trace("get_metadata_by_instance_id")
 def get_metadata_by_instance_id(instance_id, address, ctxt=None):
     ctxt = ctxt or context.get_admin_context()
     attrs = ['ec2_ids', 'flavor', 'info_cache',
@@ -693,12 +694,12 @@ def get_metadata_by_instance_id(instance_id, address, ctxt=None):
                                                 expected_attrs=attrs)
         return InstanceMetadata(instance, address)
 
-
+@p.trace("_format_instance_mapping")
 def _format_instance_mapping(instance):
     bdms = instance.get_bdms()
     return block_device.instance_block_mapping(instance, bdms)
 
-
+@p.trace("ec2_md_print")
 def ec2_md_print(data):
     if isinstance(data, dict):
         output = ''
@@ -722,7 +723,7 @@ def ec2_md_print(data):
     else:
         return str(data)
 
-
+@p.trace("find_path_in_tree")
 def find_path_in_tree(data, path_tokens):
     # given a dict/list tree, and a path in that tree, return data found there.
     for i in range(0, len(path_tokens)):

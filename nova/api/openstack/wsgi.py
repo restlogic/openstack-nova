@@ -31,6 +31,7 @@ from nova import i18n
 from nova.i18n import _
 from nova import version
 
+from bees import profiler as p
 
 LOG = logging.getLogger(__name__)
 
@@ -70,10 +71,12 @@ LEGACY_API_VERSION_REQUEST_HEADER = 'X-OpenStack-Nova-API-Version'
 ENV_LEGACY_V2 = 'openstack.legacy_v2'
 
 
+@p.trace("get_supported_content_types")
 def get_supported_content_types():
     return _SUPPORTED_CONTENT_TYPES
 
 
+# 20230203 fdt: Do not trace this class due to left recursion 
 class Request(wsgi.Request):
     """Add some OpenStack API-specific logic to the base webob.Request."""
 
@@ -184,6 +187,7 @@ class Request(wsgi.Request):
         return self.environ.get(ENV_LEGACY_V2, False)
 
 
+@p.trace_cls("ActionDispatcher")
 class ActionDispatcher(object):
     """Maps method name to local methods through action name."""
 
@@ -197,6 +201,7 @@ class ActionDispatcher(object):
         raise NotImplementedError()
 
 
+@p.trace_cls("JSONDeserializer")
 class JSONDeserializer(ActionDispatcher):
 
     def _from_json(self, datastring):
@@ -213,6 +218,7 @@ class JSONDeserializer(ActionDispatcher):
         return {'body': self._from_json(datastring)}
 
 
+@p.trace_cls("JSONDictSerializer")
 class JSONDictSerializer(ActionDispatcher):
     """Default JSON request body serialization."""
 
@@ -313,6 +319,7 @@ class ResponseObject(object):
         return self._headers.copy()
 
 
+@p.trace("action_peek")
 def action_peek(body):
     """Determine action to invoke.
 
@@ -695,6 +702,7 @@ def expected_errors(errors):
     return decorator
 
 
+@p.trace_cls("ControllerMetaclass")
 class ControllerMetaclass(type):
     """Controller metaclass.
 
@@ -738,6 +746,7 @@ class ControllerMetaclass(type):
                                                        cls_dict)
 
 
+@p.trace_cls("Controller")
 class Controller(metaclass=ControllerMetaclass):
     """Default controller."""
 

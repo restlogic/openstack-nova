@@ -16,8 +16,9 @@
 from webob import exc
 
 from nova.api.openstack import wsgi
+from bees import profiler as p
 
-
+@p.trace_cls("ConsolesController")
 class ConsolesController(wsgi.Controller):
     """(Removed) The Consoles controller for the OpenStack API.
 

@@ -12,8 +12,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from bees import profiler as p
 
-
+@p.trace_cls("ViewBuilder")
 class ViewBuilder(object):
     """OpenStack API base limits view builder."""
 

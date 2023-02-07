@@ -15,8 +15,9 @@
 
 from nova.api.openstack import common
 from nova.api.openstack.compute.views import servers
+from bees import profiler as p
 
-
+@p.trace_cls("ViewBuilder")
 class ViewBuilder(common.ViewBuilder):
     _collection_name = "tags"
 

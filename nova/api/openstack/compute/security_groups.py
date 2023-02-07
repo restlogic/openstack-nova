@@ -31,12 +31,13 @@ from nova.i18n import _
 from nova.network import security_group_api
 from nova.policies import security_groups as sg_policies
 from nova.virt import netutils
-
+from bees import profiler as p
 
 LOG = logging.getLogger(__name__)
 SG_NOT_FOUND = object()
 
 
+@p.trace_cls("SecurityGroupControllerBase")
 class SecurityGroupControllerBase(object):
     """Base class for Security Group controllers."""
 
@@ -142,6 +143,7 @@ class SecurityGroupControllerBase(object):
         return value
 
 
+@p.trace_cls("SecurityGroupController")
 class SecurityGroupController(SecurityGroupControllerBase, wsgi.Controller):
     """The Security group API controller for the OpenStack API."""
 
@@ -268,6 +270,7 @@ class SecurityGroupController(SecurityGroupControllerBase, wsgi.Controller):
                                                               group_ref)}
 
 
+@p.trace_cls("SecurityGroupRulesController")
 class SecurityGroupRulesController(SecurityGroupControllerBase,
                                    wsgi.Controller):
 
@@ -369,6 +372,7 @@ class SecurityGroupRulesController(SecurityGroupControllerBase,
             raise exc.HTTPBadRequest(explanation=exp.format_message())
 
 
+@p.trace_cls("ServerSecurityGroupController")
 class ServerSecurityGroupController(SecurityGroupControllerBase):
 
     @wsgi.expected_errors(404)
@@ -401,6 +405,7 @@ class ServerSecurityGroupController(SecurityGroupControllerBase):
                             key=lambda k: (k['tenant_id'], k['name'])))}
 
 
+@p.trace_cls("SecurityGroupActionController")
 class SecurityGroupActionController(wsgi.Controller):
     def __init__(self):
         super(SecurityGroupActionController, self).__init__()

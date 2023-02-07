@@ -21,8 +21,9 @@ from nova.api.openstack import wsgi
 from nova.compute import api as compute
 from nova.i18n import _
 from nova.policies import ips as ips_policies
+from bees import profiler as p
 
-
+@p.trace_cls("IPsController")
 class IPsController(wsgi.Controller):
     """The servers addresses API controller for the OpenStack API."""
     # Note(gmann): here using V2 view builder instead of V3 to have V2.1

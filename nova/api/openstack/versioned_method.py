@@ -12,7 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from bees import profiler as p
 
+@p.trace_cls("VersionedMethod")
 class VersionedMethod(object):
 
     def __init__(self, name, start_version, end_version, func):

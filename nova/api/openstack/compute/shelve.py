@@ -26,10 +26,13 @@ from nova.compute import api as compute
 from nova import exception
 from nova.network import neutron
 from nova.policies import shelve as shelve_policies
+from bees import profiler as p
+
 
 LOG = logging.getLogger(__name__)
 
 
+@p.trace_cls("ShelveController")
 class ShelveController(wsgi.Controller):
     def __init__(self):
         super(ShelveController, self).__init__()

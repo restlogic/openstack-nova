@@ -35,6 +35,8 @@ from nova import exception
 from nova.i18n import _
 from nova.network import neutron as neutronapi
 
+from bees import profiler as p
+
 CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
@@ -44,7 +46,7 @@ LOG = logging.getLogger(__name__)
 # they're needed.
 MAX_QUERY_NETWORKS = 160
 
-
+@p.trace_cls("MetadataRequestHandler")
 class MetadataRequestHandler(wsgi.Application):
     """Serve metadata."""
 

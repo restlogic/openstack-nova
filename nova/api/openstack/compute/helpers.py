@@ -17,6 +17,7 @@ from oslo_utils import strutils
 from webob import exc
 
 from nova.i18n import _
+from bees import profiler as p
 
 API_DISK_CONFIG = "OS-DCF:diskConfig"
 API_ACCESS_V4 = "accessIPv4"
@@ -29,6 +30,7 @@ REBUILD = 'rebuild'
 RESIZE = 'resize'
 
 
+@p.trace("disk_config_from_api")
 def disk_config_from_api(value):
     if value == 'AUTO':
         return True
@@ -39,6 +41,7 @@ def disk_config_from_api(value):
         raise exc.HTTPBadRequest(explanation=msg)
 
 
+@p.trace("get_injected_files")
 def get_injected_files(personality):
     """Create a list of injected files from the personality attribute.
 
@@ -52,6 +55,7 @@ def get_injected_files(personality):
     return injected_files
 
 
+@p.trace("translate_attributes")
 def translate_attributes(op, server_dict, operation_kwargs):
     """Translate REST attributes on create to server object kwargs.
 

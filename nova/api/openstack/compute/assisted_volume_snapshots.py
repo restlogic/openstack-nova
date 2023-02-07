@@ -25,8 +25,9 @@ from nova.api import validation
 from nova.compute import api as compute
 from nova import exception
 from nova.policies import assisted_volume_snapshots as avs_policies
+from bees import profiler as p
 
-
+@p.trace_cls("AssistedVolumeSnapshotsController")
 class AssistedVolumeSnapshotsController(wsgi.Controller):
     """The Assisted volume snapshots API controller for the OpenStack API."""
 

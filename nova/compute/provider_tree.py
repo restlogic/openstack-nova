@@ -1,53 +1,23 @@
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
-"""An object describing a tree of resource providers and their inventories.
-
-This object is not stored in the Nova API or cell databases; rather, this
-object is constructed and used by the scheduler report client to track state
-changes for resources on the hypervisor or baremetal node. As such, there are
-no remoteable methods nor is there any interaction with the nova.db modules.
-"""
-
+from bees import profiler as p
+'An object describing a tree of resource providers and their inventories.\n\nThis object is not stored in the Nova API or cell databases; rather, this\nobject is constructed and used by the scheduler report client to track state\nchanges for resources on the hypervisor or baremetal node. As such, there are\nno remoteable methods nor is there any interaction with the nova.db modules.\n'
 import collections
 import copy
-
 import os_traits
 from oslo_concurrency import lockutils
 from oslo_log import log as logging
 from oslo_utils import uuidutils
-
 from nova.i18n import _
-
 LOG = logging.getLogger(__name__)
 _LOCK_NAME = 'provider-tree-lock'
+ProviderData = collections.namedtuple('ProviderData', ['uuid', 'name', 'generation', 'parent_uuid', 'inventory', 'traits', 'aggregates', 'resources'])
 
-# Point-in-time representation of a resource provider in the tree.
-# Note that, whereas namedtuple enforces read-only-ness of instances as a
-# whole, nothing prevents modification of the internals of attributes of
-# complex types (children/inventory/traits/aggregates).  However, any such
-# modifications still have no effect on the ProviderTree the instance came
-# from.  Like, you can Sharpie a moustache on a Polaroid of my face, but that
-# doesn't make a moustache appear on my actual face.
-ProviderData = collections.namedtuple(
-    'ProviderData', ['uuid', 'name', 'generation', 'parent_uuid', 'inventory',
-                     'traits', 'aggregates', 'resources'])
-
-
+@p.trace_cls('_Provider')
 class _Provider(object):
     """Represents a resource provider in the tree. All operations against the
     tree should be done using the ProviderTree interface, since it controls
     thread-safety.
     """
+
     def __init__(self, name, uuid=None, generation=None, parent_uuid=None):
         if uuid is None:
             uuid = uuidutils.generate_uuid()
@@ -55,17 +25,10 @@ class _Provider(object):
         self.name = name
         self.generation = generation
         self.parent_uuid = parent_uuid
-        # Contains a dict, keyed by uuid of child resource providers having
-        # this provider as a parent
         self.children = {}
-        # dict of inventory records, keyed by resource class
         self.inventory = {}
-        # Set of trait names
         self.traits = set()
-        # Set of aggregate UUIDs
         self.aggregates = set()
-        # dict of resource records, keyed by resource class
-        # the value is the set of objects.Resource
         self.resources = {}
 
     @classmethod
@@ -77,18 +40,14 @@ class _Provider(object):
                       'uuid', 'generation', 'parent_provider_uuid'.  Of these,
                       only 'name' is mandatory.
         """
-        return cls(pdict['name'], uuid=pdict.get('uuid'),
-                   generation=pdict.get('generation'),
-                   parent_uuid=pdict.get('parent_provider_uuid'))
+        return cls(pdict['name'], uuid=pdict.get('uuid'), generation=pdict.get('generation'), parent_uuid=pdict.get('parent_provider_uuid'))
 
     def data(self):
         inventory = copy.deepcopy(self.inventory)
         traits = copy.copy(self.traits)
         aggregates = copy.copy(self.aggregates)
         resources = copy.deepcopy(self.resources)
-        return ProviderData(
-            self.uuid, self.name, self.generation, self.parent_uuid,
-            inventory, traits, aggregates, resources)
+        return ProviderData(self.uuid, self.name, self.generation, self.parent_uuid, inventory, traits, aggregates, resources)
 
     def get_provider_uuids(self):
         """Returns a list, in top-down traversal order, of UUIDs of this
@@ -106,8 +65,6 @@ class _Provider(object):
             return self.children[search]
         if self.children:
             for child in self.children.values():
-                # We already searched for the child by UUID above, so here we
-                # just check for a child name match
                 if child.name == search:
                     return child
                 subchild = child.find(search)
@@ -131,22 +88,12 @@ class _Provider(object):
         cur = self.inventory
         if set(cur) != set(new):
             return True
-        for key, cur_rec in cur.items():
+        for (key, cur_rec) in cur.items():
             new_rec = new[key]
-            # If the new record contains new fields (e.g. we're adding on
-            # `reserved` or `allocation_ratio`) we want to make sure to pick
-            # them up
             if set(new_rec) - set(cur_rec):
                 return True
-            for rec_key, cur_val in cur_rec.items():
+            for (rec_key, cur_val) in cur_rec.items():
                 if rec_key not in new_rec:
-                    # Deliberately don't want to compare missing keys in the
-                    # *new* inventory record. For instance, we will be passing
-                    # in fields like allocation_ratio in the current dict but
-                    # the resource tracker may only pass in the total field. We
-                    # want to return that inventory didn't change when the
-                    # total field values are the same even if the
-                    # allocation_ratio field is missing from the new record.
                     continue
                 if new_rec[rec_key] != cur_val:
                     return True
@@ -154,15 +101,8 @@ class _Provider(object):
 
     def _update_generation(self, generation, operation):
         if generation is not None and generation != self.generation:
-            msg_args = {
-                'rp_uuid': self.uuid,
-                'old': self.generation,
-                'new': generation,
-                'op': operation
-            }
-            LOG.debug("Updating resource provider %(rp_uuid)s generation "
-                      "from %(old)s to %(new)s during operation: %(op)s",
-                      msg_args)
+            msg_args = {'rp_uuid': self.uuid, 'old': self.generation, 'new': generation, 'op': operation}
+            LOG.debug('Updating resource provider %(rp_uuid)s generation from %(old)s to %(new)s during operation: %(op)s', msg_args)
             self.generation = generation
 
     def update_inventory(self, inventory, generation):
@@ -172,12 +112,10 @@ class _Provider(object):
         """
         self._update_generation(generation, 'update_inventory')
         if self.has_inventory_changed(inventory):
-            LOG.debug('Updating inventory in ProviderTree for provider %s '
-                      'with inventory: %s', self.uuid, inventory)
+            LOG.debug('Updating inventory in ProviderTree for provider %s with inventory: %s', self.uuid, inventory)
             self.inventory = copy.deepcopy(inventory)
             return True
-        LOG.debug('Inventory has not changed in ProviderTree for provider: %s',
-                  self.uuid)
+        LOG.debug('Inventory has not changed in ProviderTree for provider: %s', self.uuid)
         return False
 
     def have_traits_changed(self, new):
@@ -191,7 +129,7 @@ class _Provider(object):
         """
         self._update_generation(generation, 'update_traits')
         if self.have_traits_changed(new):
-            self.traits = set(new)  # create a copy of the new traits
+            self.traits = set(new)
             return True
         return False
 
@@ -216,7 +154,7 @@ class _Provider(object):
         """
         self._update_generation(generation, 'update_aggregates')
         if self.have_aggregates_changed(new):
-            self.aggregates = set(new)  # create a copy of the new aggregates
+            self.aggregates = set(new)
             return True
         return False
 
@@ -243,7 +181,7 @@ class _Provider(object):
             return True
         return False
 
-
+@p.trace_cls('ProviderTree')
 class ProviderTree(object):
 
     def __init__(self):
@@ -268,8 +206,6 @@ class ProviderTree(object):
         if name_or_uuid is not None:
             with self.lock:
                 return self._find_with_lock(name_or_uuid).get_provider_uuids()
-
-        # If no name_or_uuid, get UUIDs for all providers recursively.
         ret = []
         with self.lock:
             for root in self.roots:
@@ -285,8 +221,7 @@ class ProviderTree(object):
                              whole tree for which to return UUIDs.
         """
         with self.lock:
-            return self._find_with_lock(
-                name_or_uuid, return_root=True).get_provider_uuids()
+            return self._find_with_lock(name_or_uuid, return_root=True).get_provider_uuids()
 
     def populate_from_iterable(self, provider_dicts):
         """Populates this ProviderTree from an iterable of provider dicts.
@@ -308,18 +243,9 @@ class ProviderTree(object):
         """
         if not provider_dicts:
             return
-
-        # Map of provider UUID to provider dict for the providers we're
-        # *adding* via this method.
         to_add_by_uuid = {pd['uuid']: pd for pd in provider_dicts}
-
         with self.lock:
-            # Sanity check for orphans.  Every parent UUID must either be None
-            # (the provider is a root), or be in the tree already, or exist as
-            # a key in to_add_by_uuid (we're adding it).
             all_parents = set([None]) | set(to_add_by_uuid)
-            # NOTE(efried): Can't use get_provider_uuids directly because we're
-            # already under lock.
             for root in self.roots:
                 all_parents |= set(root.get_provider_uuids())
             missing_parents = set()
@@ -328,41 +254,18 @@ class ProviderTree(object):
                 if parent_uuid not in all_parents:
                     missing_parents.add(parent_uuid)
             if missing_parents:
-                raise ValueError(
-                    _("The following parents were not found: %s") %
-                    ', '.join(missing_parents))
-
-            # Ready to do the work.
-            # Use to_add_by_uuid to keep track of which providers are left to
-            # be added.
+                raise ValueError(_('The following parents were not found: %s') % ', '.join(missing_parents))
             while to_add_by_uuid:
-                # Find a provider that's suitable to inject.
-                for uuid, pd in to_add_by_uuid.items():
-                    # Roots are always okay to inject (None won't be a key in
-                    # to_add_by_uuid).  Otherwise, we have to make sure we
-                    # already added the parent (and, by recursion, all
-                    # ancestors) if present in the input.
+                for (uuid, pd) in to_add_by_uuid.items():
                     parent_uuid = pd.get('parent_provider_uuid')
                     if parent_uuid not in to_add_by_uuid:
                         break
                 else:
-                    # This should never happen - we already ensured all parents
-                    # exist in the tree, which means we can't have any branches
-                    # that don't wind up at the root, which means we can't have
-                    # cycles.  But to quell the paranoia...
-                    raise ValueError(
-                        _("Unexpectedly failed to find parents already in the "
-                          "tree for any of the following: %s") %
-                        ','.join(set(to_add_by_uuid)))
-
-                # Add or replace the provider, either as a root or under its
-                # parent
+                    raise ValueError(_('Unexpectedly failed to find parents already in the tree for any of the following: %s') % ','.join(set(to_add_by_uuid)))
                 try:
                     self._remove_with_lock(uuid)
                 except ValueError:
-                    # Wasn't there in the first place - fine.
                     pass
-
                 provider = _Provider.from_dict(pd)
                 if parent_uuid is None:
                     self.roots_by_uuid[provider.uuid] = provider
@@ -370,8 +273,6 @@ class ProviderTree(object):
                 else:
                     parent = self._find_with_lock(parent_uuid)
                     parent.add_child(provider)
-
-                # Remove this entry to signify we're done with it.
                 to_add_by_uuid.pop(uuid)
 
     def _remove_with_lock(self, name_or_uuid):
@@ -404,39 +305,32 @@ class ProviderTree(object):
         :raises: ValueError if a provider with the specified uuid already
                  exists in the tree.
         """
-
         with self.lock:
             exists = True
             try:
                 self._find_with_lock(uuid)
             except ValueError:
                 exists = False
-
             if exists:
-                err = _("Provider %s already exists.")
+                err = _('Provider %s already exists.')
                 raise ValueError(err % uuid)
-
             p = _Provider(name, uuid=uuid, generation=generation)
             self.roots_by_uuid[uuid] = p
             self.roots_by_name[name] = p
             return p.uuid
 
     def _find_with_lock(self, name_or_uuid, return_root=False):
-        # Optimization for large number of roots (e.g. ironic): if name_or_uuid
-        # represents a root, this is O(1).
         found = self.roots_by_uuid.get(name_or_uuid)
         if found:
             return found
         found = self.roots_by_name.get(name_or_uuid)
         if found:
             return found
-
-        # Okay, it's a child; do it the hard way.
         for root in self.roots:
             found = root.find(name_or_uuid)
             if found:
                 return root if return_root else found
-        raise ValueError(_("No such provider %s") % name_or_uuid)
+        raise ValueError(_('No such provider %s') % name_or_uuid)
 
     def data(self, name_or_uuid):
         """Return a point-in-time copy of the specified provider's data.
@@ -481,9 +375,8 @@ class ProviderTree(object):
             except ValueError:
                 pass
             else:
-                err = _("Provider %s already exists.")
+                err = _('Provider %s already exists.')
                 raise ValueError(err % (uuid or name))
-
             parent_node = self._find_with_lock(parent)
             p = _Provider(name, uuid, generation, parent_node.uuid)
             parent_node.add_child(p)
@@ -685,8 +578,7 @@ class ProviderTree(object):
         """
         with self.lock:
             provider = self._find_with_lock(name_or_uuid)
-            return provider.update_aggregates(aggregates,
-                                              generation=generation)
+            return provider.update_aggregates(aggregates, generation=generation)
 
     def add_aggregates(self, name_or_uuid, *aggregates):
         """Set aggregates on a provider, without affecting existing aggregates.

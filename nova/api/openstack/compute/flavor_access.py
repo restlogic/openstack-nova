@@ -26,8 +26,9 @@ from nova.api import validation
 from nova import exception
 from nova.i18n import _
 from nova.policies import flavor_access as fa_policies
+from bees import profiler as p
 
-
+@p.trace("_marshall_flavor_access")
 def _marshall_flavor_access(flavor):
     rval = []
     for project_id in flavor.projects:
@@ -37,6 +38,7 @@ def _marshall_flavor_access(flavor):
     return {'flavor_access': rval}
 
 
+@p.trace_cls("FlavorAccessController")
 class FlavorAccessController(wsgi.Controller):
     """The flavor access API controller for the OpenStack API."""
     @wsgi.expected_errors(404)
@@ -55,6 +57,7 @@ class FlavorAccessController(wsgi.Controller):
         return _marshall_flavor_access(flavor)
 
 
+@p.trace_cls("FlavorActionController")
 class FlavorActionController(wsgi.Controller):
     """The flavor access API controller for the OpenStack API."""
 

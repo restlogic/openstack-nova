@@ -27,7 +27,7 @@ from nova.api.openstack import wsgi
 from nova.api import validation
 from nova.policies import limits as limits_policies
 from nova import quota
-
+from bees import profiler as p
 
 QUOTAS = quota.QUOTAS
 
@@ -41,6 +41,7 @@ FILTERED_LIMITS_2_57 = list(FILTERED_LIMITS_2_36)
 FILTERED_LIMITS_2_57.extend(['injected_files', 'injected_file_content_bytes'])
 
 
+@p.trace_cls("LimitsController")
 class LimitsController(wsgi.Controller):
     """Controller for accessing limits in the OpenStack API."""
 

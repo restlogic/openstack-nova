@@ -23,8 +23,9 @@ from nova.api import validation
 from nova.compute import api as compute
 from nova import exception
 from nova.policies import create_backup as cb_policies
+from bees import profiler as p
 
-
+@p.trace_cls("CreateBackupController")
 class CreateBackupController(wsgi.Controller):
     def __init__(self):
         super(CreateBackupController, self).__init__()

@@ -17,8 +17,9 @@
 from webob import exc
 
 from nova.api.openstack import wsgi
+from bees import profiler as p
 
-
+@p.trace_cls("CloudpipeController")
 class CloudpipeController(wsgi.Controller):
     """Handle creating and listing cloudpipe instances."""
 

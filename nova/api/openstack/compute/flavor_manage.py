@@ -22,8 +22,9 @@ from nova import exception
 from nova import objects
 from nova.policies import flavor_extra_specs as fes_policies
 from nova.policies import flavor_manage as fm_policies
+from bees import profiler as p
 
-
+@p.trace_cls("FlavorManageController")
 class FlavorManageController(wsgi.Controller):
     """The Flavor Lifecycle API controller for the OpenStack API."""
     _view_builder_class = flavors_view.ViewBuilder

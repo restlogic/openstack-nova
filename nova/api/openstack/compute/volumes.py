@@ -33,8 +33,9 @@ from nova import objects
 from nova.policies import volumes as vol_policies
 from nova.policies import volumes_attachments as va_policies
 from nova.volume import cinder
+from bees import profiler as p
 
-
+@p.trace("_translate_volume_detail_view")
 def _translate_volume_detail_view(context, vol):
     """Maps keys for volumes details view."""
 
@@ -45,6 +46,7 @@ def _translate_volume_detail_view(context, vol):
     return d
 
 
+@p.trace("_translate_volume_summary_view")
 def _translate_volume_summary_view(context, vol):
     """Maps keys for volumes summary view."""
     d = {}
@@ -92,6 +94,7 @@ def _translate_volume_summary_view(context, vol):
     return d
 
 
+@p.trace_cls("VolumeController")
 class VolumeController(wsgi.Controller):
     """The Volumes API controller for the OpenStack API."""
 
@@ -215,6 +218,7 @@ class VolumeController(wsgi.Controller):
         return wsgi.ResponseObject(result, headers=dict(location=location))
 
 
+@p.trace("_translate_attachment_detail_view")
 def _translate_attachment_detail_view(bdm, show_tag=False,
                                       show_delete_on_termination=False):
     """Maps keys for attachment details view.
@@ -239,6 +243,7 @@ def _translate_attachment_detail_view(bdm, show_tag=False,
     return d
 
 
+@p.trace("_translate_attachment_summary_view")
 def _translate_attachment_summary_view(volume_id, instance_uuid, mountpoint):
     """Maps keys for attachment summary view."""
     d = {}
@@ -255,6 +260,7 @@ def _translate_attachment_summary_view(volume_id, instance_uuid, mountpoint):
     return d
 
 
+@p.trace("_check_request_version")
 def _check_request_version(req, min_version, method, server_id, server_state):
     if not api_version_request.is_supported(req, min_version=min_version):
         exc_inv = exception.InstanceInvalidState(
@@ -268,6 +274,7 @@ def _check_request_version(req, min_version, method, server_id, server_state):
                 server_id)
 
 
+@p.trace_cls("VolumeAttachmentController")
 class VolumeAttachmentController(wsgi.Controller):
     """The volume attachment API controller for the OpenStack API.
 
@@ -545,6 +552,7 @@ class VolumeAttachmentController(wsgi.Controller):
                     'detach_volume', server_id)
 
 
+@p.trace("_translate_snapshot_detail_view")
 def _translate_snapshot_detail_view(context, vol):
     """Maps keys for snapshots details view."""
 
@@ -554,6 +562,7 @@ def _translate_snapshot_detail_view(context, vol):
     return d
 
 
+@p.trace("_translate_snapshot_summary_view")
 def _translate_snapshot_summary_view(context, vol):
     """Maps keys for snapshots summary view."""
     d = {}
@@ -569,6 +578,7 @@ def _translate_snapshot_summary_view(context, vol):
     return d
 
 
+@p.trace_cls("SnapshotController")
 class SnapshotController(wsgi.Controller):
     """The Snapshots API controller for the OpenStack API."""
 

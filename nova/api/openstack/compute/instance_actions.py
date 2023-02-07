@@ -30,7 +30,7 @@ from nova import exception
 from nova.i18n import _
 from nova.policies import instance_actions as ia_policies
 from nova import utils
-
+from bees import profiler as p
 
 ACTION_KEYS = ['action', 'instance_uuid', 'request_id', 'user_id',
                'project_id', 'start_time', 'message']
@@ -39,6 +39,7 @@ ACTION_KEYS_V258 = ['action', 'instance_uuid', 'request_id', 'user_id',
 EVENT_KEYS = ['event', 'start_time', 'finish_time', 'result', 'traceback']
 
 
+@p.trace_cls("InstanceActionsController")
 class InstanceActionsController(wsgi.Controller):
     _view_builder_class = instance_actions_view.ViewBuilder
 

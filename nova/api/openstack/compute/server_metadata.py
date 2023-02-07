@@ -24,8 +24,10 @@ from nova.compute import api as compute
 from nova import exception
 from nova.i18n import _
 from nova.policies import server_metadata as sm_policies
+from bees import profiler as p
 
 
+@p.trace_cls("ServerMetadataController")
 class ServerMetadataController(wsgi.Controller):
     """The server metadata API controller for the OpenStack API."""
 

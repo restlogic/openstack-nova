@@ -25,8 +25,9 @@ from nova.api import validation
 from nova.compute import api as compute
 from nova import exception
 from nova.policies import console_output as co_policies
+from bees import profiler as p
 
-
+@p.trace_cls("ConsoleOutputController")
 class ConsoleOutputController(wsgi.Controller):
     def __init__(self):
         super(ConsoleOutputController, self).__init__()

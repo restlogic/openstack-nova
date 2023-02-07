@@ -16,7 +16,7 @@
 from nova.api.openstack import api_version_request
 from nova.api.openstack.compute.views import versions as views_versions
 from nova.api.openstack import wsgi
-
+from bees import profiler as p
 
 LINKS = {
    'v2.0': {
@@ -72,6 +72,7 @@ VERSIONS = {
 }
 
 
+@p.trace_cls("Versions")
 class Versions(wsgi.Resource):
 
     # The root version API isn't under the microversion control.
@@ -102,6 +103,7 @@ class Versions(wsgi.Resource):
         return args
 
 
+@p.trace_cls("VersionsV2")
 class VersionsV2(wsgi.Resource):
 
     def __init__(self):

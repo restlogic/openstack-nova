@@ -21,8 +21,9 @@ from nova.api import validation
 from nova.compute import api as compute
 from nova import exception
 from nova.policies import remote_consoles as rc_policies
+from bees import profiler as p
 
-
+@p.trace_cls("RemoteConsolesController")
 class RemoteConsolesController(wsgi.Controller):
     def __init__(self):
         super(RemoteConsolesController, self).__init__()

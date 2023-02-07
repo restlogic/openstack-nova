@@ -26,7 +26,9 @@ from nova.objects import base as obj_base
 from nova.objects import fields
 from nova.policies import migrations as migrations_policies
 
+from bees import profiler as p
 
+@p.trace_cls("MigrationsController")
 class MigrationsController(wsgi.Controller):
     """Controller for accessing migrations in OpenStack API."""
 

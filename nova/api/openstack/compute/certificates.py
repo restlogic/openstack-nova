@@ -15,8 +15,9 @@
 import webob.exc
 
 from nova.api.openstack import wsgi
+from bees import profiler as p
 
-
+@p.trace_cls("CertificatesController")
 class CertificatesController(wsgi.Controller):
     """The x509 Certificates API controller for the OpenStack API."""
 

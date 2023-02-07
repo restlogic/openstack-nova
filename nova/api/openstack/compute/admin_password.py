@@ -22,8 +22,10 @@ from nova.compute import api as compute
 from nova import exception
 from nova.i18n import _
 from nova.policies import admin_password as ap_policies
+from bees import profiler as p
 
 
+@p.trace_cls("AdminPasswordController")
 class AdminPasswordController(wsgi.Controller):
 
     def __init__(self):

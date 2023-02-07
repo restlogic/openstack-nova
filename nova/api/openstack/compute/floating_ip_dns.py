@@ -15,8 +15,9 @@
 from webob import exc
 
 from nova.api.openstack import wsgi
+from bees import profiler as p
 
-
+@p.trace_cls("FloatingIPDNSDomainController")
 class FloatingIPDNSDomainController(wsgi.Controller):
     """DNS domain controller for OpenStack API."""
 
@@ -33,6 +34,7 @@ class FloatingIPDNSDomainController(wsgi.Controller):
         raise exc.HTTPGone()
 
 
+@p.trace_cls("FloatingIPDNSEntryController")
 class FloatingIPDNSEntryController(wsgi.Controller):
     """DNS Entry controller for OpenStack API."""
 

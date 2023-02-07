@@ -29,8 +29,9 @@ from nova.i18n import _
 from nova.network import neutron
 from nova import objects
 from nova.policies import attach_interfaces as ai_policies
+from bees import profiler as p
 
-
+@p.trace("_translate_interface_attachment_view")
 def _translate_interface_attachment_view(context, port_info, show_tag=False):
     """Maps keys for interface attachment details view.
 
@@ -55,6 +56,7 @@ def _translate_interface_attachment_view(context, port_info, show_tag=False):
     return info
 
 
+@p.trace_cls("InterfaceAttachmentController")
 class InterfaceAttachmentController(wsgi.Controller):
     """The interface attachment API controller for the OpenStack API."""
 

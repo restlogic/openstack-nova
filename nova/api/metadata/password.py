@@ -22,6 +22,7 @@ from nova.i18n import _
 from nova import objects
 from nova import utils
 
+from bees import profiler as p
 
 CONF = nova.conf.CONF
 
@@ -29,7 +30,7 @@ CHUNKS = 4
 CHUNK_LENGTH = 255
 MAX_SIZE = CHUNKS * CHUNK_LENGTH
 
-
+@p.trace("extract_password")
 def extract_password(instance):
     result = ''
     sys_meta = utils.instance_sys_meta(instance)
@@ -38,7 +39,7 @@ def extract_password(instance):
             result += sys_meta[key]
     return result or None
 
-
+@p.trace("convert_password")
 def convert_password(context, password):
     """Stores password as system_metadata items.
 
@@ -54,7 +55,7 @@ def convert_password(context, password):
         password = password[CHUNK_LENGTH:]
     return meta
 
-
+@p.trace("handle_password")
 def handle_password(req, meta_data):
     ctxt = context.get_admin_context()
     if req.method == 'GET':

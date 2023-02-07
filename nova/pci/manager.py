@@ -1,35 +1,17 @@
-# Copyright (c) 2013 Intel, Inc.
-# Copyright (c) 2013 OpenStack Foundation
-# All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
+from bees import profiler as p
 import collections
-
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
-
 from nova import exception
 from nova import objects
 from nova.objects import fields
 from nova.pci import stats
 from nova.pci import whitelist
-
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
-
+@p.trace_cls('PciDevTracker')
 class PciDevTracker(object):
     """Manage pci devices in a compute node.
 
@@ -58,21 +40,16 @@ class PciDevTracker(object):
         :param compute_node: The object.ComputeNode whose PCI devices we're
                              tracking.
         """
-
         super(PciDevTracker, self).__init__()
         self.stale = {}
         self.node_id = compute_node.id
         self.dev_filter = whitelist.Whitelist(CONF.pci.passthrough_whitelist)
         numa_topology = compute_node.numa_topology
         if numa_topology:
-            # For legacy reasons, the NUMATopology is stored as a JSON blob.
-            # Deserialize it into a real object.
             numa_topology = objects.NUMATopology.obj_from_db_obj(numa_topology)
-        self.stats = stats.PciDeviceStats(
-            numa_topology, dev_filter=self.dev_filter)
+        self.stats = stats.PciDeviceStats(numa_topology, dev_filter=self.dev_filter)
         self._context = context
-        self.pci_devs = objects.PciDeviceList.get_by_compute_node(
-            context, self.node_id)
+        self.pci_devs = objects.PciDeviceList.get_by_compute_node(context, self.node_id)
         self._build_device_tree(self.pci_devs)
         self._initial_instance_usage()
 
@@ -117,45 +94,13 @@ class PciDevTracker(object):
                              get_available_resource() call in the
                              pci_passthrough_devices key.
         """
-
         devices = []
         for dev in jsonutils.loads(devices_json):
             try:
                 if self.dev_filter.device_assignable(dev):
                     devices.append(dev)
             except exception.PciConfigInvalidWhitelist as e:
-                # The raised exception is misleading as the problem is not with
-                # the whitelist config but with the host PCI device reported by
-                # libvirt. The code that matches the host PCI device to the
-                # withelist spec reuses the WhitelistPciAddress object to parse
-                # the host PCI device address. That parsing can fail if the
-                # PCI address has a 32 bit domain. But this should not prevent
-                # processing the rest of the devices. So we simply skip this
-                # device and continue.
-                # Please note that this except block does not ignore the
-                # invalid whitelist configuration. The whitelist config has
-                # already been parsed or rejected in case it was invalid. At
-                # this point the self.dev_filter representes the parsed and
-                # validated whitelist config.
-                LOG.debug(
-                    'Skipping PCI device %s reported by the hypervisor: %s',
-                    {k: v for k, v in dev.items()
-                     if k in ['address', 'parent_addr']},
-                    # NOTE(gibi): this is ugly but the device_assignable() call
-                    # uses the PhysicalPciAddress class to parse the PCI
-                    # addresses and that class reuses the code from
-                    # PciAddressSpec that was originally designed to parse
-                    # whitelist spec. Hence the raised exception talks about
-                    # whitelist config. This is misleading as in our case the
-                    # PCI address that we failed to parse came from the
-                    # hypervisor.
-                    # TODO(gibi): refactor the false abstraction to make the
-                    # code reuse clean from the false assumption that we only
-                    # parse whitelist config with
-                    # devspec.PciAddressSpec._set_pci_dev_info()
-                    str(e).replace(
-                        'Invalid PCI devices Whitelist config:', 'The'))
-
+                LOG.debug('Skipping PCI device %s reported by the hypervisor: %s', {k: v for (k, v) in dev.items() if k in ['address', 'parent_addr']}, str(e).replace('Invalid PCI devices Whitelist config:', 'The'))
         self._set_hvdevs(devices)
 
     @staticmethod
@@ -172,26 +117,15 @@ class PciDevTracker(object):
 
         Currently relationships are considered for SR-IOV PFs/VFs only.
         """
-
-        # Ensures that devices are ordered in ASC so VFs will come
-        # after their PFs.
         all_devs.sort(key=lambda x: x.address)
-
         parents = {}
         for dev in all_devs:
-            if dev.status in (fields.PciDeviceStatus.REMOVED,
-                              fields.PciDeviceStatus.DELETED):
-                # NOTE(ndipanov): Removed devs are pruned from
-                # self.pci_devs on save() so we need to make sure we
-                # are not looking at removed ones as we may build up
-                # the tree sooner than they are pruned.
+            if dev.status in (fields.PciDeviceStatus.REMOVED, fields.PciDeviceStatus.DELETED):
                 continue
             if dev.dev_type == fields.PciDeviceType.SRIOV_PF:
                 dev.child_devices = []
                 parents[dev.address] = dev
-            elif dev.dev_type in (
-                fields.PciDeviceType.SRIOV_VF, fields.PciDeviceType.VDPA
-            ):
+            elif dev.dev_type in (fields.PciDeviceType.SRIOV_VF, fields.PciDeviceType.VDPA):
                 dev.parent_device = parents.get(dev.parent_addr)
                 if dev.parent_device:
                     parents[dev.parent_addr].child_devices.append(dev)
@@ -199,101 +133,42 @@ class PciDevTracker(object):
     def _set_hvdevs(self, devices):
         exist_addrs = set([dev.address for dev in self.pci_devs])
         new_addrs = set([dev['address'] for dev in devices])
-
         for existed in self.pci_devs:
             if existed.address in exist_addrs - new_addrs:
-                # Remove previously tracked PCI devices that are either
-                # no longer reported by the hypervisor or have been removed
-                # from the pci whitelist.
                 try:
                     existed.remove()
                 except exception.PciDeviceInvalidStatus as e:
-                    LOG.warning("Unable to remove device with %(status)s "
-                                "ownership %(instance_uuid)s because of "
-                                "%(pci_exception)s. "
-                                "Check your [pci]passthrough_whitelist "
-                                "configuration to make sure this allocated "
-                                "device is whitelisted. If you have removed "
-                                "the device from the whitelist intentionally "
-                                "or the device is no longer available on the "
-                                "host you will need to delete the server or "
-                                "migrate it to another host to silence this "
-                                "warning.",
-                                {'status': existed.status,
-                                 'instance_uuid': existed.instance_uuid,
-                                 'pci_exception': e.format_message()})
-                    # NOTE(sean-k-mooney): the device may not be tracked for
-                    # two reasons: first the device could have been removed
-                    # from the host or second the whitelist could have been
-                    # updated. While force removing may seam reasonable, if
-                    # the device is allocated to a vm, force removing the
-                    # device entry from the resource tracker can prevent the vm
-                    # from rebooting. If the PCI device was removed due to an
-                    # update to the PCI whitelist which was later reverted,
-                    # removing the entry from the database and adding it back
-                    # later may lead to the scheduler incorrectly selecting
-                    # this host and the ResourceTracker assigning the PCI
-                    # device to a second vm. To prevent this bug we skip
-                    # deleting the device from the db in this iteration and
-                    # will try again on the next sync.
+                    LOG.warning('Unable to remove device with %(status)s ownership %(instance_uuid)s because of %(pci_exception)s. Check your [pci]passthrough_whitelist configuration to make sure this allocated device is whitelisted. If you have removed the device from the whitelist intentionally or the device is no longer available on the host you will need to delete the server or migrate it to another host to silence this warning.', {'status': existed.status, 'instance_uuid': existed.instance_uuid, 'pci_exception': e.format_message()})
                     continue
                 else:
-                    # Note(yjiang5): no need to update stats if an assigned
-                    # device is hot removed.
                     self.stats.remove_device(existed)
             else:
-                # Update tracked devices.
-                new_value = next((dev for dev in devices if
-                    dev['address'] == existed.address))
+                new_value = next((dev for dev in devices if dev['address'] == existed.address))
                 new_value['compute_node_id'] = self.node_id
-                if existed.status in (fields.PciDeviceStatus.CLAIMED,
-                                      fields.PciDeviceStatus.ALLOCATED):
-                    # Pci properties may change while assigned because of
-                    # hotplug or config changes. Although normally this should
-                    # not happen.
-
-                    # As the devices have been assigned to an instance,
-                    # we defer the change till the instance is destroyed.
-                    # We will not sync the new properties with database
-                    # before that.
-
-                    # TODO(yjiang5): Not sure if this is a right policy, but
-                    # at least it avoids some confusion and, if needed,
-                    # we can add more action like killing the instance
-                    # by force in future.
+                if existed.status in (fields.PciDeviceStatus.CLAIMED, fields.PciDeviceStatus.ALLOCATED):
                     self.stale[new_value['address']] = new_value
                 else:
                     existed.update_device(new_value)
                     self.stats.update_device(existed)
-
-        # Track newly discovered devices.
-        for dev in [dev for dev in devices if
-                    dev['address'] in new_addrs - exist_addrs]:
+        for dev in [dev for dev in devices if dev['address'] in new_addrs - exist_addrs]:
             dev['compute_node_id'] = self.node_id
             dev_obj = objects.PciDevice.create(self._context, dev)
             self.pci_devs.objects.append(dev_obj)
             self.stats.add_device(dev_obj)
-
         self._build_device_tree(self.pci_devs)
 
     def _claim_instance(self, context, pci_requests, instance_numa_topology):
         instance_cells = None
         if instance_numa_topology:
             instance_cells = instance_numa_topology.cells
-
-        devs = self.stats.consume_requests(pci_requests.requests,
-                                           instance_cells)
+        devs = self.stats.consume_requests(pci_requests.requests, instance_cells)
         if not devs:
             return None
-
         instance_uuid = pci_requests.instance_uuid
         for dev in devs:
             dev.claim(instance_uuid)
-        if instance_numa_topology and any(
-                                        dev.numa_node is None for dev in devs):
-            LOG.warning("Assigning a pci device without numa affinity to "
-                        "instance %(instance)s which has numa topology",
-                        {'instance': instance_uuid})
+        if instance_numa_topology and any((dev.numa_node is None for dev in devs)):
+            LOG.warning('Assigning a pci device without numa affinity to instance %(instance)s which has numa topology', {'instance': instance_uuid})
         return devs
 
     def _allocate_instance(self, instance, devs):
@@ -310,8 +185,7 @@ class PciDevTracker(object):
         devs = []
         if self.pci_devs and pci_requests.requests:
             instance_uuid = pci_requests.instance_uuid
-            devs = self._claim_instance(context, pci_requests,
-                                        instance_numa_topology)
+            devs = self._claim_instance(context, pci_requests, instance_numa_topology)
             if devs:
                 self.claims[instance_uuid] = devs
         return devs
@@ -324,18 +198,13 @@ class PciDevTracker(object):
                          is allocated to
         """
         for pci_dev in self.pci_devs:
-            # Find the matching pci device in the pci resource tracker.
-            # Once found, free it.
             if dev.id == pci_dev.id and dev.instance_uuid == instance['uuid']:
-                self._remove_device_from_pci_mapping(
-                    instance['uuid'], pci_dev, self.allocations)
-                self._remove_device_from_pci_mapping(
-                    instance['uuid'], pci_dev, self.claims)
+                self._remove_device_from_pci_mapping(instance['uuid'], pci_dev, self.allocations)
+                self._remove_device_from_pci_mapping(instance['uuid'], pci_dev, self.claims)
                 self._free_device(pci_dev)
                 break
 
-    def _remove_device_from_pci_mapping(
-            self, instance_uuid, pci_device, pci_mapping):
+    def _remove_device_from_pci_mapping(self, instance_uuid, pci_device, pci_mapping):
         """Remove a PCI device from allocations or claims.
 
         If there are no more PCI devices, pop the uuid.
@@ -362,8 +231,7 @@ class PciDevTracker(object):
         """
         if self.allocations.pop(instance['uuid'], None):
             for dev in self.pci_devs:
-                if (dev.status == fields.PciDeviceStatus.ALLOCATED and
-                        dev.instance_uuid == instance['uuid']):
+                if dev.status == fields.PciDeviceStatus.ALLOCATED and dev.instance_uuid == instance['uuid']:
                     self._free_device(dev)
 
     def free_instance_claims(self, context, instance):
@@ -374,8 +242,7 @@ class PciDevTracker(object):
         """
         if self.claims.pop(instance['uuid'], None):
             for dev in self.pci_devs:
-                if (dev.status == fields.PciDeviceStatus.CLAIMED and
-                        dev.instance_uuid == instance['uuid']):
+                if dev.status == fields.PciDeviceStatus.CLAIMED and dev.instance_uuid == instance['uuid']:
                     self._free_device(dev)
 
     def free_instance(self, context, instance):
@@ -384,11 +251,6 @@ class PciDevTracker(object):
         :param context: user request context (nova.context.RequestContext)
         :param instance: instance object
         """
-        # Note(yjiang5): When an instance is resized, the devices in the
-        # destination node are claimed to the instance in prep_resize stage.
-        # However, the instance contains only allocated devices
-        # information, not the claimed one. So we can't use
-        # instance['pci_devices'] to check the devices to be freed.
         self.free_instance_allocations(context, instance)
         self.free_instance_claims(context, instance)
 
@@ -397,7 +259,6 @@ class PciDevTracker(object):
         """
         if not self.pci_devs:
             return
-
         if sign == -1:
             self.free_instance(context, instance)
         if sign == 1:
@@ -408,23 +269,20 @@ class PciDevTracker(object):
 
         The caller should hold the COMPUTE_RESOURCE_SEMAPHORE lock
         """
-        existed = set(inst['uuid'] for inst in instances)
-        existed |= set(mig['instance_uuid'] for mig in migrations)
-
-        # need to copy keys, because the dict is modified in the loop body
+        existed = set((inst['uuid'] for inst in instances))
+        existed |= set((mig['instance_uuid'] for mig in migrations))
         for uuid in list(self.claims):
             if uuid not in existed:
                 devs = self.claims.pop(uuid, [])
                 for dev in devs:
                     self._free_device(dev)
-        # need to copy keys, because the dict is modified in the loop body
         for uuid in list(self.allocations):
             if uuid not in existed:
                 devs = self.allocations.pop(uuid, [])
                 for dev in devs:
                     self._free_device(dev)
 
-
+@p.trace('get_instance_pci_devs')
 def get_instance_pci_devs(inst, request_id=None):
     """Get the devices allocated to one or all requests for an instance.
 
@@ -437,5 +295,4 @@ def get_instance_pci_devs(inst, request_id=None):
     pci_devices = inst.pci_devices
     if pci_devices is None:
         return []
-    return [device for device in pci_devices if
-                   device.request_id == request_id or request_id == 'all']
+    return [device for device in pci_devices if device.request_id == request_id or request_id == 'all']

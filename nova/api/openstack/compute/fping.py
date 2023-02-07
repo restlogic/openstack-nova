@@ -17,8 +17,9 @@
 from webob import exc
 
 from nova.api.openstack import wsgi
+from bees import profiler as p
 
-
+@p.trace_cls("FpingController")
 class FpingController(wsgi.Controller):
 
     @wsgi.expected_errors(410)

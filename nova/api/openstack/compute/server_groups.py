@@ -33,6 +33,7 @@ from nova.i18n import _
 from nova import objects
 from nova.objects import service
 from nova.policies import server_groups as sg_policies
+from bees import profiler as p
 
 LOG = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ CONF = nova.conf.CONF
 GROUP_POLICY_OBJ_MICROVERSION = "2.64"
 
 
+@p.trace("_get_not_deleted")
 def _get_not_deleted(context, uuids):
     mappings = objects.InstanceMappingList.get_by_instance_uuids(
         context, uuids)
@@ -76,6 +78,7 @@ def _get_not_deleted(context, uuids):
     return found_inst_uuids
 
 
+@p.trace("_should_enable_custom_max_server_rules")
 def _should_enable_custom_max_server_rules(context, rules):
     if rules and int(rules.get('max_server_per_host', 1)) > 1:
         minver = service.get_minimum_version_all_cells(
@@ -85,6 +88,7 @@ def _should_enable_custom_max_server_rules(context, rules):
     return True
 
 
+@p.trace_cls("ServerGroupController")
 class ServerGroupController(wsgi.Controller):
     """The Server group API controller for the OpenStack API."""
 

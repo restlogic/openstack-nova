@@ -23,7 +23,7 @@ from nova.api.openstack import wsgi
 from nova import exception
 from nova.i18n import _
 from nova.image import glance
-
+from bees import profiler as p
 
 SUPPORTED_FILTERS = {
     'name': 'name',
@@ -36,6 +36,7 @@ SUPPORTED_FILTERS = {
 }
 
 
+@p.trace_cls("ImagesController")
 class ImagesController(wsgi.Controller):
     """Base controller for retrieving/displaying images."""
 

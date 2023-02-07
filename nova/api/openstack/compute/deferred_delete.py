@@ -22,8 +22,9 @@ from nova.api.openstack import wsgi
 from nova.compute import api as compute
 from nova import exception
 from nova.policies import deferred_delete as dd_policies
+from bees import profiler as p
 
-
+@p.trace_cls("DeferredDeleteController")
 class DeferredDeleteController(wsgi.Controller):
     def __init__(self):
         super(DeferredDeleteController, self).__init__()

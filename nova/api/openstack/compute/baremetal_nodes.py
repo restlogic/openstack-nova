@@ -26,6 +26,8 @@ from nova.api.openstack import wsgi
 import nova.conf
 from nova.i18n import _
 from nova.policies import baremetal_nodes as bn_policies
+from bees import profiler as p
+
 
 ironic_client = importutils.try_import('ironicclient.client')
 ironic_exc = importutils.try_import('ironicclient.exc')
@@ -33,12 +35,14 @@ ironic_exc = importutils.try_import('ironicclient.exc')
 CONF = nova.conf.CONF
 
 
+@p.trace("_check_ironic_client_enabled")
 def _check_ironic_client_enabled():
     """Check whether Ironic is installed or not."""
     if ironic_client is None:
         common.raise_feature_not_supported()
 
 
+@p.trace("_get_ironic_client")
 def _get_ironic_client():
     """return an Ironic client."""
     # TODO(NobodyCam): Fix insecure setting
@@ -61,6 +65,7 @@ def _get_ironic_client():
     return icli
 
 
+@p.trace("_no_ironic_proxy")
 def _no_ironic_proxy(cmd):
     raise webob.exc.HTTPBadRequest(
                     explanation=_("Command Not supported. Please use Ironic "
@@ -68,6 +73,7 @@ def _no_ironic_proxy(cmd):
                                   "action.") % {'cmd': cmd})
 
 
+@p.trace_cls("BareMetalNodeController")
 class BareMetalNodeController(wsgi.Controller):
     """The Bare-Metal Node API controller for the OpenStack API."""
 

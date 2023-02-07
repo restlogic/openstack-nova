@@ -24,6 +24,8 @@ from nova.compute import vm_states
 from nova import exception
 from nova import objects
 from nova.policies import admin_actions as aa_policies
+from bees import profiler as p
+
 
 # States usable in resetState action
 # NOTE: It is necessary to update the schema of nova/api/openstack/compute/
@@ -31,6 +33,7 @@ from nova.policies import admin_actions as aa_policies
 state_map = dict(active=vm_states.ACTIVE, error=vm_states.ERROR)
 
 
+@p.trace_cls("AdminActionsController")
 class AdminActionsController(wsgi.Controller):
     def __init__(self):
         super(AdminActionsController, self).__init__()

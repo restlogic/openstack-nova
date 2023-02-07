@@ -23,8 +23,9 @@ from nova import exception
 from nova.i18n import _
 from nova.network import neutron
 from nova.policies import networks as net_policies
+from bees import profiler as p
 
-
+@p.trace("network_dict")
 def network_dict(context, network):
     if not network:
         return {}
@@ -59,6 +60,7 @@ def network_dict(context, network):
     return result
 
 
+@p.trace_cls("NetworkController")
 class NetworkController(wsgi.Controller):
 
     def __init__(self, network_api=None):

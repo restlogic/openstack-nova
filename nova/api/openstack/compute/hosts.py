@@ -27,10 +27,12 @@ from nova import context as nova_context
 from nova import exception
 from nova import objects
 from nova.policies import hosts as hosts_policies
+from bees import profiler as p
 
 LOG = logging.getLogger(__name__)
 
 
+@p.trace_cls("HostController")
 class HostController(wsgi.Controller):
     """The Hosts API controller for the OpenStack API."""
     def __init__(self):

@@ -31,6 +31,7 @@ from nova.policies import services as services_policies
 from nova.scheduler.client import report
 from nova import servicegroup
 from nova import utils
+from bees import profiler as p
 
 UUID_FOR_ID_MIN_VERSION = '2.53'
 PARTIAL_CONSTRUCT_FOR_CELL_DOWN_MIN_VERSION = '2.69'
@@ -38,6 +39,7 @@ PARTIAL_CONSTRUCT_FOR_CELL_DOWN_MIN_VERSION = '2.69'
 LOG = logging.getLogger(__name__)
 
 
+@p.trace_cls("ServiceController")
 class ServiceController(wsgi.Controller):
 
     def __init__(self):

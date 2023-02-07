@@ -17,14 +17,16 @@ from nova.api.openstack.api_version_request \
 from nova.api.openstack import wsgi
 from nova.network import neutron
 from nova.policies import floating_ip_pools as fip_policies
+from bees import profiler as p
 
-
+@p.trace("_translate_floating_ip_view")
 def _translate_floating_ip_view(pool):
     return {
         'name': pool['name'] or pool['id'],
     }
 
 
+@p.trace("_translate_floating_ip_pools_view")
 def _translate_floating_ip_pools_view(pools):
     return {
         'floating_ip_pools': [_translate_floating_ip_view(pool)
@@ -32,6 +34,7 @@ def _translate_floating_ip_pools_view(pools):
     }
 
 
+@p.trace_cls("FloatingIPPoolsController")
 class FloatingIPPoolsController(wsgi.Controller):
     """The Floating IP Pool API controller for the OpenStack API."""
 

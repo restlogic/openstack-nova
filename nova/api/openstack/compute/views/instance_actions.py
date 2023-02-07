@@ -13,8 +13,9 @@
 # under the License.
 
 from nova.api.openstack import common
+from bees import profiler as p
 
-
+@p.trace_cls("ViewBuilder")
 class ViewBuilder(common.ViewBuilder):
 
     def get_links(self, request, server_id, instance_actions):

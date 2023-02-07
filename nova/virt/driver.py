@@ -1,42 +1,19 @@
-# Copyright 2011 Justin Santa Barbara
-# All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
-"""
-Driver base-classes:
-
-    (Beginning of) the contract that compute drivers must follow, and shared
-    types that support that contract
-"""
-
+from bees import profiler as p
+'\nDriver base-classes:\n\n    (Beginning of) the contract that compute drivers must follow, and shared\n    types that support that contract\n'
 import sys
-
 import os_resource_classes as orc
 import os_traits
 from oslo_log import log as logging
 from oslo_utils import importutils
-
 import nova.conf
 from nova import context as nova_context
 from nova.i18n import _
 from nova import objects
 from nova.virt import event as virtevent
-
 CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
-
+@p.trace('get_block_device_info')
 def get_block_device_info(instance, block_device_mapping):
     """Converts block device mappings for an instance to driver format.
 
@@ -52,81 +29,39 @@ def get_block_device_info(instance, block_device_mapping):
                             specialized subclasses.
     """
     from nova.virt import block_device as virt_block_device
-
-    block_device_info = {
-        'root_device_name': instance.root_device_name,
-        'ephemerals': virt_block_device.convert_ephemerals(
-            block_device_mapping),
-        'block_device_mapping':
-            virt_block_device.convert_all_volumes(*block_device_mapping)
-    }
+    block_device_info = {'root_device_name': instance.root_device_name, 'ephemerals': virt_block_device.convert_ephemerals(block_device_mapping), 'block_device_mapping': virt_block_device.convert_all_volumes(*block_device_mapping)}
     swap_list = virt_block_device.convert_swap(block_device_mapping)
     block_device_info['swap'] = virt_block_device.get_swap(swap_list)
-
     return block_device_info
 
-
+@p.trace('block_device_info_get_root_device')
 def block_device_info_get_root_device(block_device_info):
     block_device_info = block_device_info or {}
     return block_device_info.get('root_device_name')
 
-
+@p.trace('block_device_info_get_swap')
 def block_device_info_get_swap(block_device_info):
     block_device_info = block_device_info or {}
-    return block_device_info.get('swap') or {'device_name': None,
-                                             'swap_size': 0}
+    return block_device_info.get('swap') or {'device_name': None, 'swap_size': 0}
 
-
+@p.trace('swap_is_usable')
 def swap_is_usable(swap):
-    return swap and swap['device_name'] and swap['swap_size'] > 0
+    return swap and swap['device_name'] and (swap['swap_size'] > 0)
 
-
+@p.trace('block_device_info_get_ephemerals')
 def block_device_info_get_ephemerals(block_device_info):
     block_device_info = block_device_info or {}
     ephemerals = block_device_info.get('ephemerals') or []
     return ephemerals
 
-
+@p.trace('block_device_info_get_mapping')
 def block_device_info_get_mapping(block_device_info):
     block_device_info = block_device_info or {}
     block_device_mapping = block_device_info.get('block_device_mapping') or []
     return block_device_mapping
+CAPABILITY_TRAITS_MAP = {'supports_attach_interface': os_traits.COMPUTE_NET_ATTACH_INTERFACE, 'supports_device_tagging': os_traits.COMPUTE_DEVICE_TAGGING, 'supports_tagged_attach_interface': os_traits.COMPUTE_NET_ATTACH_INTERFACE_WITH_TAG, 'supports_tagged_attach_volume': os_traits.COMPUTE_VOLUME_ATTACH_WITH_TAG, 'supports_extend_volume': os_traits.COMPUTE_VOLUME_EXTEND, 'supports_multiattach': os_traits.COMPUTE_VOLUME_MULTI_ATTACH, 'supports_trusted_certs': os_traits.COMPUTE_TRUSTED_CERTS, 'supports_accelerators': os_traits.COMPUTE_ACCELERATORS, 'supports_image_type_aki': os_traits.COMPUTE_IMAGE_TYPE_AKI, 'supports_image_type_ami': os_traits.COMPUTE_IMAGE_TYPE_AMI, 'supports_image_type_ari': os_traits.COMPUTE_IMAGE_TYPE_ARI, 'supports_image_type_iso': os_traits.COMPUTE_IMAGE_TYPE_ISO, 'supports_image_type_qcow2': os_traits.COMPUTE_IMAGE_TYPE_QCOW2, 'supports_image_type_raw': os_traits.COMPUTE_IMAGE_TYPE_RAW, 'supports_image_type_vdi': os_traits.COMPUTE_IMAGE_TYPE_VDI, 'supports_image_type_vhd': os_traits.COMPUTE_IMAGE_TYPE_VHD, 'supports_image_type_vhdx': os_traits.COMPUTE_IMAGE_TYPE_VHDX, 'supports_image_type_vmdk': os_traits.COMPUTE_IMAGE_TYPE_VMDK, 'supports_image_type_ploop': os_traits.COMPUTE_IMAGE_TYPE_PLOOP, 'supports_migrate_to_same_host': os_traits.COMPUTE_SAME_HOST_COLD_MIGRATE, 'supports_bfv_rescue': os_traits.COMPUTE_RESCUE_BFV, 'supports_secure_boot': os_traits.COMPUTE_SECURITY_UEFI_SECURE_BOOT}
 
-
-# NOTE(aspiers): When adding new capabilities, ensure they are
-# mirrored in ComputeDriver.capabilities, and that the corresponding
-# values should always be standard traits in os_traits.  If something
-# isn't a standard trait, it doesn't need to be a compute node
-# capability trait; and if it needs to be a compute node capability
-# trait, it needs to be (made) standard, and must be prefixed with
-# "COMPUTE_".
-CAPABILITY_TRAITS_MAP = {
-    "supports_attach_interface": os_traits.COMPUTE_NET_ATTACH_INTERFACE,
-    "supports_device_tagging": os_traits.COMPUTE_DEVICE_TAGGING,
-    "supports_tagged_attach_interface":
-        os_traits.COMPUTE_NET_ATTACH_INTERFACE_WITH_TAG,
-    "supports_tagged_attach_volume": os_traits.COMPUTE_VOLUME_ATTACH_WITH_TAG,
-    "supports_extend_volume": os_traits.COMPUTE_VOLUME_EXTEND,
-    "supports_multiattach": os_traits.COMPUTE_VOLUME_MULTI_ATTACH,
-    "supports_trusted_certs": os_traits.COMPUTE_TRUSTED_CERTS,
-    "supports_accelerators": os_traits.COMPUTE_ACCELERATORS,
-    "supports_image_type_aki": os_traits.COMPUTE_IMAGE_TYPE_AKI,
-    "supports_image_type_ami": os_traits.COMPUTE_IMAGE_TYPE_AMI,
-    "supports_image_type_ari": os_traits.COMPUTE_IMAGE_TYPE_ARI,
-    "supports_image_type_iso": os_traits.COMPUTE_IMAGE_TYPE_ISO,
-    "supports_image_type_qcow2": os_traits.COMPUTE_IMAGE_TYPE_QCOW2,
-    "supports_image_type_raw": os_traits.COMPUTE_IMAGE_TYPE_RAW,
-    "supports_image_type_vdi": os_traits.COMPUTE_IMAGE_TYPE_VDI,
-    "supports_image_type_vhd": os_traits.COMPUTE_IMAGE_TYPE_VHD,
-    "supports_image_type_vhdx": os_traits.COMPUTE_IMAGE_TYPE_VHDX,
-    "supports_image_type_vmdk": os_traits.COMPUTE_IMAGE_TYPE_VMDK,
-    "supports_image_type_ploop": os_traits.COMPUTE_IMAGE_TYPE_PLOOP,
-    "supports_migrate_to_same_host": os_traits.COMPUTE_SAME_HOST_COLD_MIGRATE,
-    "supports_bfv_rescue": os_traits.COMPUTE_RESCUE_BFV,
-    "supports_secure_boot": os_traits.COMPUTE_SECURITY_UEFI_SECURE_BOOT,
-}
-
-
+@p.trace('_check_image_type_exclude_list')
 def _check_image_type_exclude_list(capability, supported):
     """Enforce the exclusion list on image_type capabilites.
 
@@ -137,10 +72,9 @@ def _check_image_type_exclude_list(capability, supported):
               if it is not listed in the config to be excluded.
     """
     image_type = capability.replace('supports_image_type_', '')
-    return (supported and
-            image_type not in CONF.compute.image_type_exclude_list)
+    return supported and image_type not in CONF.compute.image_type_exclude_list
 
-
+@p.trace_cls('ComputeDriver')
 class ComputeDriver(object):
     """Base class for compute drivers.
 
@@ -171,44 +105,7 @@ class ComputeDriver(object):
     virtualization platform.
 
     """
-
-    # NOTE(mriedem): When adding new capabilities, consider whether they
-    # should also be added to CAPABILITY_TRAITS_MAP; if so, any new traits
-    # must also be added to the os-traits library.
-    capabilities = {
-        "has_imagecache": False,
-        "supports_evacuate": False,
-        "supports_migrate_to_same_host": False,
-        "supports_attach_interface": False,
-        "supports_device_tagging": False,
-        "supports_tagged_attach_interface": False,
-        "supports_tagged_attach_volume": False,
-        "supports_extend_volume": False,
-        "supports_multiattach": False,
-        "supports_trusted_certs": False,
-        "supports_pcpus": False,
-        "supports_accelerators": False,
-        "supports_bfv_rescue": False,
-        "supports_vtpm": False,
-        "supports_secure_boot": False,
-
-        # Image type support flags
-        "supports_image_type_aki": False,
-        "supports_image_type_ami": False,
-        "supports_image_type_ari": False,
-        "supports_image_type_iso": False,
-        "supports_image_type_qcow2": False,
-        "supports_image_type_raw": False,
-        "supports_image_type_vdi": False,
-        "supports_image_type_vhd": False,
-        "supports_image_type_vhdx": False,
-        "supports_image_type_vmdk": False,
-        "supports_image_type_ploop": False,
-    }
-
-    # Indicates if this driver will rebalance nodes among compute service
-    # hosts. This is really here for ironic and should not be used by any
-    # other driver.
+    capabilities = {'has_imagecache': False, 'supports_evacuate': False, 'supports_migrate_to_same_host': False, 'supports_attach_interface': False, 'supports_device_tagging': False, 'supports_tagged_attach_interface': False, 'supports_tagged_attach_volume': False, 'supports_extend_volume': False, 'supports_multiattach': False, 'supports_trusted_certs': False, 'supports_pcpus': False, 'supports_accelerators': False, 'supports_bfv_rescue': False, 'supports_vtpm': False, 'supports_secure_boot': False, 'supports_image_type_aki': False, 'supports_image_type_ami': False, 'supports_image_type_ari': False, 'supports_image_type_iso': False, 'supports_image_type_qcow2': False, 'supports_image_type_raw': False, 'supports_image_type_vdi': False, 'supports_image_type_vhd': False, 'supports_image_type_vhdx': False, 'supports_image_type_vmdk': False, 'supports_image_type_ploop': False}
     rebalances_nodes = False
 
     def __init__(self, virtapi):
@@ -219,7 +116,6 @@ class ComputeDriver(object):
         """Initialize anything that is necessary for the driver to function,
         including catching up with currently running VM's on the given host.
         """
-        # TODO(Vek): Need to pass context in for access to auth_token
         raise NotImplementedError()
 
     def cleanup_host(self, host):
@@ -239,7 +135,6 @@ class ComputeDriver(object):
                           cache, this parameter can be ignored.
         :returns: An InstanceInfo object
         """
-        # TODO(Vek): Need to pass context in for access to auth_token
         raise NotImplementedError()
 
     def get_num_instances(self):
@@ -281,7 +176,6 @@ class ComputeDriver(object):
         """Return the names of all the instances known to the virtualization
         layer, as a list.
         """
-        # TODO(Vek): Need to pass context in for access to auth_token
         raise NotImplementedError()
 
     def list_instance_uuids(self):
@@ -290,11 +184,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def rebuild(self, context, instance, image_meta, injected_files,
-                admin_password, allocations, bdms, detach_block_devices,
-                attach_block_devices, network_info=None,
-                evacuate=False, block_device_info=None,
-                preserve_ephemeral=False, accel_uuids=None):
+    def rebuild(self, context, instance, image_meta, injected_files, admin_password, allocations, bdms, detach_block_devices, attach_block_devices, network_info=None, evacuate=False, block_device_info=None, preserve_ephemeral=False, accel_uuids=None):
         """Destroy and re-make this instance.
 
         A 'rebuild' effectively purges all existing data from the system and
@@ -363,9 +253,7 @@ class ComputeDriver(object):
         """
         pass
 
-    def spawn(self, context, instance, image_meta, injected_files,
-              admin_password, allocations, network_info=None,
-              block_device_info=None, power_on=True, accel_info=None):
+    def spawn(self, context, instance, image_meta, injected_files, admin_password, allocations, network_info=None, block_device_info=None, power_on=True, accel_info=None):
         """Create a new instance/VM/domain on the virtualization platform.
 
         Once this successfully completes, the instance should be
@@ -411,8 +299,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def destroy(self, context, instance, network_info, block_device_info=None,
-                destroy_disks=True, destroy_secrets=True):
+    def destroy(self, context, instance, network_info, block_device_info=None, destroy_disks=True, destroy_secrets=True):
         """Destroy the specified instance from the Hypervisor.
 
         If the instance is not found (for example if networking failed), this
@@ -429,9 +316,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def cleanup(self, context, instance, network_info, block_device_info=None,
-                destroy_disks=True, migrate_data=None, destroy_vifs=True,
-                destroy_secrets=True):
+    def cleanup(self, context, instance, network_info, block_device_info=None, destroy_disks=True, migrate_data=None, destroy_vifs=True, destroy_secrets=True):
         """Cleanup the instance resources .
 
         Instance should have been destroyed from the Hypervisor before calling
@@ -449,9 +334,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def reboot(self, context, instance, network_info, reboot_type,
-               block_device_info=None, bad_volumes_callback=None,
-               accel_info=None):
+    def reboot(self, context, instance, network_info, reboot_type, block_device_info=None, bad_volumes_callback=None, accel_info=None):
         """Reboot the specified instance.
 
         After this is called successfully, the instance's state
@@ -539,7 +422,6 @@ class ComputeDriver(object):
             :func:`get_instance_diagnostics`
         :rtype: dict
         """
-        # TODO(Vek): Need to pass context in for access to auth_token
         raise NotImplementedError()
 
     def get_instance_diagnostics(self, instance):
@@ -563,11 +445,9 @@ class ComputeDriver(object):
     def get_host_ip_addr(self):
         """Retrieves the IP address of the host running compute service
         """
-        # TODO(Vek): Need to pass context in for access to auth_token
         raise NotImplementedError()
 
-    def attach_volume(self, context, connection_info, instance, mountpoint,
-                      disk_bus=None, device_type=None, encryption=None):
+    def attach_volume(self, context, connection_info, instance, mountpoint, disk_bus=None, device_type=None, encryption=None):
         """Attach the disk to the instance at mountpoint using info.
 
         :raises TooManyDiskDevices: if the maxmimum allowed devices to attach
@@ -575,13 +455,11 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def detach_volume(self, context, connection_info, instance, mountpoint,
-                      encryption=None):
+    def detach_volume(self, context, connection_info, instance, mountpoint, encryption=None):
         """Detach the disk attached to the instance."""
         raise NotImplementedError()
 
-    def swap_volume(self, context, old_connection_info, new_connection_info,
-                    instance, mountpoint, resize_to):
+    def swap_volume(self, context, old_connection_info, new_connection_info, instance, mountpoint, resize_to):
         """Replace the volume attached to the given `instance`.
 
         :param context: The request context.
@@ -604,8 +482,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def extend_volume(self, context, connection_info, instance,
-                      requested_size):
+    def extend_volume(self, context, connection_info, instance, requested_size):
         """Extend the disk attached to the instance.
 
         :param context: The request context.
@@ -620,8 +497,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def prepare_networks_before_block_device_mapping(self, instance,
-                                                     network_info):
+    def prepare_networks_before_block_device_mapping(self, instance, network_info):
         """Prepare networks before the block devices are mapped to instance.
 
         Drivers who need network information for block device preparation can
@@ -683,10 +559,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def migrate_disk_and_power_off(self, context, instance, dest,
-                                   flavor, network_info,
-                                   block_device_info=None,
-                                   timeout=0, retry_interval=0):
+    def migrate_disk_and_power_off(self, context, instance, dest, flavor, network_info, block_device_info=None, timeout=0, retry_interval=0):
         """Transfers the disk of a running instance in multiple phases, turning
         off the instance before the end.
 
@@ -726,9 +599,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def finish_migration(self, context, migration, instance, disk_info,
-                         network_info, image_meta, resize_instance,
-                         allocations, block_device_info=None, power_on=True):
+    def finish_migration(self, context, migration, instance, disk_info, network_info, image_meta, resize_instance, allocations, block_device_info=None, power_on=True):
         """Completes a resize/migration.
 
         :param context: the context for the migration/resize
@@ -756,9 +627,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def finish_revert_migration(self, context, instance, network_info,
-                                migration, block_device_info=None,
-                                power_on=True):
+    def finish_revert_migration(self, context, instance, network_info, migration, block_device_info=None, power_on=True):
         """Finish reverting a resize/migration.
 
         :param context: the context for the finish_revert_migration
@@ -785,7 +654,6 @@ class ComputeDriver(object):
 
         :return: None
         """
-        # TODO(Vek): Need to pass context in for access to auth_token
         raise NotImplementedError()
 
     def unpause(self, instance):
@@ -801,7 +669,6 @@ class ComputeDriver(object):
 
         :return: None
         """
-        # TODO(Vek): Need to pass context in for access to auth_token
         raise NotImplementedError()
 
     def suspend(self, context, instance):
@@ -842,16 +709,14 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def resume_state_on_host_boot(self, context, instance, network_info,
-                                  block_device_info=None):
+    def resume_state_on_host_boot(self, context, instance, network_info, block_device_info=None):
         """resume guest state when a host is booted.
 
         :param instance: nova.objects.instance.Instance
         """
         raise NotImplementedError()
 
-    def rescue(self, context, instance, network_info, image_meta,
-               rescue_password, block_device_info):
+    def rescue(self, context, instance, network_info, image_meta, rescue_password, block_device_info):
         """Rescue the specified instance.
 
         :param nova.context.RequestContext context:
@@ -868,11 +733,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def unrescue(
-        self,
-        context: nova_context.RequestContext,
-        instance: 'objects.Instance',
-    ):
+    def unrescue(self, context: nova_context.RequestContext, instance: 'objects.Instance'):
         """Unrescue the specified instance.
 
         :param context: security context
@@ -890,8 +751,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def power_on(self, context, instance, network_info,
-                 block_device_info=None, accel_info=None):
+    def power_on(self, context, instance, network_info, block_device_info=None, accel_info=None):
         """Power on the specified instance.
 
         :param instance: nova.objects.instance.Instance
@@ -958,7 +818,7 @@ class ComputeDriver(object):
 
     @staticmethod
     def _get_reserved_host_disk_gb_from_config():
-        import nova.compute.utils as compute_utils  # avoid circular import
+        import nova.compute.utils as compute_utils
         return compute_utils.convert_mb_to_ceil_gb(CONF.reserved_host_disk_mb)
 
     @staticmethod
@@ -981,11 +841,9 @@ class ComputeDriver(object):
                           information.
         :returns: Return a dict, keyed by resource class, of allocation ratio
         """
-        keys = {'cpu': orc.VCPU,
-                'ram': orc.MEMORY_MB,
-                'disk': orc.DISK_GB}
+        keys = {'cpu': orc.VCPU, 'ram': orc.MEMORY_MB, 'disk': orc.DISK_GB}
         result = {}
-        for res, rc in keys.items():
+        for (res, rc) in keys.items():
             attr = '%s_allocation_ratio' % res
             conf_ratio = getattr(CONF, attr)
             if conf_ratio:
@@ -1089,14 +947,11 @@ class ComputeDriver(object):
 
         """
         traits = {}
-        for capability, supported in self.capabilities.items():
+        for (capability, supported) in self.capabilities.items():
             if capability.startswith('supports_image_type_'):
-                supported = _check_image_type_exclude_list(capability,
-                                                           supported)
-
+                supported = _check_image_type_exclude_list(capability, supported)
             if capability in CAPABILITY_TRAITS_MAP:
                 traits[CAPABILITY_TRAITS_MAP[capability]] = supported
-
         return traits
 
     def get_available_resource(self, nodename):
@@ -1112,8 +967,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def pre_live_migration(self, context, instance, block_device_info,
-                           network_info, disk_info, migrate_data):
+    def pre_live_migration(self, context, instance, block_device_info, network_info, disk_info, migrate_data):
         """Prepare an instance for live migration
 
         :param context: security context
@@ -1128,9 +982,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def live_migration(self, context, instance, dest,
-                       post_method, recover_method, block_migration=False,
-                       migrate_data=None):
+    def live_migration(self, context, instance, dest, post_method, recover_method, block_migration=False, migrate_data=None):
         """Live migration of an instance to another host.
 
         :param context: security context
@@ -1166,8 +1018,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def rollback_live_migration_at_source(self, context, instance,
-                                          migrate_data):
+    def rollback_live_migration_at_source(self, context, instance, migrate_data):
         """Clean up source node after a failed live migration.
 
         :param context: security context
@@ -1176,11 +1027,7 @@ class ComputeDriver(object):
         """
         pass
 
-    def rollback_live_migration_at_destination(self, context, instance,
-                                               network_info,
-                                               block_device_info,
-                                               destroy_disks=True,
-                                               migrate_data=None):
+    def rollback_live_migration_at_destination(self, context, instance, network_info, block_device_info, destroy_disks=True, migrate_data=None):
         """Clean up destination node after a failed live migration.
 
         :param context: security context
@@ -1194,8 +1041,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def post_live_migration(self, context, instance, block_device_info,
-                            migrate_data=None):
+    def post_live_migration(self, context, instance, block_device_info, migrate_data=None):
         """Post operation of live migration at source host.
 
         :param context: security context
@@ -1212,13 +1058,9 @@ class ComputeDriver(object):
         :param instance: instance object reference
         :param network_info: instance network information
         """
-        raise NotImplementedError(_("Hypervisor driver does not support "
-                                    "post_live_migration_at_source method"))
+        raise NotImplementedError(_('Hypervisor driver does not support post_live_migration_at_source method'))
 
-    def post_live_migration_at_destination(self, context, instance,
-                                           network_info,
-                                           block_migration=False,
-                                           block_device_info=None):
+    def post_live_migration_at_destination(self, context, instance, network_info, block_migration=False, block_device_info=None):
         """Post operation of live migration at destination host.
 
         :param context: security context
@@ -1255,10 +1097,7 @@ class ComputeDriver(object):
         """
         pass
 
-    def check_can_live_migrate_destination(self, context, instance,
-                                           src_compute_info, dst_compute_info,
-                                           block_migration=False,
-                                           disk_over_commit=False):
+    def check_can_live_migrate_destination(self, context, instance, src_compute_info, dst_compute_info, block_migration=False, disk_over_commit=False):
         """Check if it is possible to execute live migration.
 
         This runs checks on the destination host, and then calls
@@ -1290,8 +1129,7 @@ class ComputeDriver(object):
         """
         return migrate_data
 
-    def cleanup_live_migration_destination_check(self, context,
-                                                 dest_check_data):
+    def cleanup_live_migration_destination_check(self, context, dest_check_data):
         """Do required cleanup on dest host after check_can_live_migrate calls
 
         :param context: security context
@@ -1299,8 +1137,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def check_can_live_migrate_source(self, context, instance,
-                                      dest_check_data, block_device_info=None):
+    def check_can_live_migrate_source(self, context, instance, dest_check_data, block_device_info=None):
         """Check if it is possible to execute live migration.
 
         This checks if the live migration can succeed, based on the
@@ -1314,8 +1151,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def get_instance_disk_info(self, instance,
-                               block_device_info=None):
+    def get_instance_disk_info(self, instance, block_device_info=None):
         """Retrieve information about actual disk sizes of an instance.
 
         :param instance: nova.objects.Instance
@@ -1345,7 +1181,6 @@ class ComputeDriver(object):
 
     def inject_network_info(self, instance, nw_info):
         """inject network info for specified instance."""
-        # TODO(Vek): Need to pass context in for access to auth_token
         pass
 
     def poll_rebooting_instances(self, timeout, instances):
@@ -1363,7 +1198,6 @@ class ComputeDriver(object):
 
         :return: None
         """
-        # TODO(Vek): Need to pass context in for access to auth_token
         raise NotImplementedError()
 
     def host_power_action(self, action):
@@ -1376,7 +1210,6 @@ class ComputeDriver(object):
         :return: The result of the power action
         :rtype: str
         """
-
         raise NotImplementedError()
 
     def host_maintenance_mode(self, host, mode):
@@ -1395,7 +1228,6 @@ class ComputeDriver(object):
                  "off_maintenance" if maintenance mode got left.
         :rtype: str
         """
-
         raise NotImplementedError()
 
     def set_host_enabled(self, enabled):
@@ -1410,7 +1242,6 @@ class ComputeDriver(object):
                  return "disabled".
         :rtype: str
         """
-        # TODO(Vek): Need to pass context in for access to auth_token
         raise NotImplementedError()
 
     def get_host_uptime(self):
@@ -1420,7 +1251,6 @@ class ComputeDriver(object):
                  last boot.
         :rtype: str
         """
-        # TODO(Vek): Need to pass context in for access to auth_token
         raise NotImplementedError()
 
     def plug_vifs(self, instance, network_info):
@@ -1436,7 +1266,6 @@ class ComputeDriver(object):
 
         :return: None
         """
-        # TODO(Vek): Need to pass context in for access to auth_token
         raise NotImplementedError()
 
     def unplug_vifs(self, instance, network_info):
@@ -1558,7 +1387,6 @@ class ComputeDriver(object):
         """Return whether this compute service manages a particular node."""
         if nodename in self.get_available_nodes():
             return True
-        # Refresh and check again.
         return nodename in self.get_available_nodes(refresh=True)
 
     def instance_on_disk(self, instance):
@@ -1583,7 +1411,6 @@ class ComputeDriver(object):
         be invoked with a single parameter, which will be
         an instance of the nova.virt.event.Event class.
         """
-
         self._compute_event_callback = callback
 
     def emit_event(self, event):
@@ -1593,21 +1420,16 @@ class ComputeDriver(object):
         compute manager to dispatch the event. This
         must only be invoked from a green thread.
         """
-
         if not self._compute_event_callback:
-            LOG.debug("Discarding event %s", str(event))
+            LOG.debug('Discarding event %s', str(event))
             return
-
         if not isinstance(event, virtevent.Event):
-            raise ValueError(
-                _("Event must be an instance of nova.virt.event.Event"))
-
+            raise ValueError(_('Event must be an instance of nova.virt.event.Event'))
         try:
-            LOG.debug("Emitting event %s", str(event))
+            LOG.debug('Emitting event %s', str(event))
             self._compute_event_callback(event)
         except Exception as ex:
-            LOG.error("Exception dispatching event %(event)s: %(ex)s",
-                      {'event': event, 'ex': ex})
+            LOG.error('Exception dispatching event %(event)s: %(ex)s', {'event': event, 'ex': ex})
 
     def delete_instance_files(self, instance):
         """Delete any lingering instance files for an instance.
@@ -1626,8 +1448,7 @@ class ComputeDriver(object):
         """
         return True
 
-    def volume_snapshot_create(self, context, instance, volume_id,
-                               create_info):
+    def volume_snapshot_create(self, context, instance, volume_id, create_info):
         """Snapshots volumes attached to a specified instance.
 
         The counter action to this is :func:`volume_snapshot_delete`
@@ -1648,8 +1469,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def volume_snapshot_delete(self, context, instance, volume_id,
-                               snapshot_id, delete_info):
+    def volume_snapshot_delete(self, context, instance, volume_id, snapshot_id, delete_info):
         """Deletes a snapshot of a volume attached to a specified instance.
 
         The counter action to this is :func:`volume_snapshot_create`
@@ -1686,8 +1506,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def default_device_names_for_instance(self, instance, root_device_name,
-                                          *block_device_lists):
+    def default_device_names_for_instance(self, instance, root_device_name, *block_device_lists):
         """Default the missing device names in the block device mapping.
 
         :raises TooManyDiskDevices: if the maxmimum allowed devices to attach
@@ -1695,8 +1514,7 @@ class ComputeDriver(object):
         """
         raise NotImplementedError()
 
-    def get_device_name_for_instance(self, instance,
-                                     bdms, block_device_obj):
+    def get_device_name_for_instance(self, instance, bdms, block_device_obj):
         """Get the next device name based on the block device mapping.
 
         :param instance: nova.objects.instance.Instance that volume is
@@ -1720,10 +1538,6 @@ class ComputeDriver(object):
         :param fs_type: the file system type to be checked,
                         the validate values are defined at disk API module.
         """
-        # NOTE(jichenjc): Return False here so that every hypervisor
-        #                 need to define their supported file system
-        #                 type and implement this function at their
-        #                 virt layer.
         return False
 
     def quiesce(self, context, instance, image_meta):
@@ -1788,7 +1602,7 @@ class ComputeDriver(object):
         """
         return True
 
-
+@p.trace('load_compute_driver')
 def load_compute_driver(virtapi, compute_driver=None):
     """Load a compute driver module.
 
@@ -1805,23 +1619,18 @@ def load_compute_driver(virtapi, compute_driver=None):
     """
     if not compute_driver:
         compute_driver = CONF.compute_driver
-
     if not compute_driver:
-        LOG.error("Compute driver option required, but not specified")
+        LOG.error('Compute driver option required, but not specified')
         sys.exit(1)
-
     LOG.info("Loading compute driver '%s'", compute_driver)
     try:
-        driver = importutils.import_object(
-            'nova.virt.%s' % compute_driver,
-            virtapi)
+        driver = importutils.import_object('nova.virt.%s' % compute_driver, virtapi)
         if isinstance(driver, ComputeDriver):
             return driver
         raise ValueError()
     except ImportError:
-        LOG.exception("Unable to load the virtualization driver")
+        LOG.exception('Unable to load the virtualization driver')
         sys.exit(1)
     except ValueError:
-        LOG.exception("Compute driver '%s' from 'nova.virt' is not of type "
-                      "'%s'", compute_driver, str(ComputeDriver))
+        LOG.exception("Compute driver '%s' from 'nova.virt' is not of type '%s'", compute_driver, str(ComputeDriver))
         sys.exit(1)

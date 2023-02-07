@@ -1,78 +1,15 @@
-# Copyright (c) 2016 OpenStack Foundation
-# All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
+from bees import profiler as p
 from oslo_config import cfg
+novnc_opts = [cfg.StrOpt('record', help='\nFilename that will be used for storing websocket frames received\nand sent by a proxy service (like VNC, spice, serial) running on this host.\nIf this is not set, no recording will be done.\n'), cfg.BoolOpt('daemon', default=False, help='Run as a background process.'), cfg.BoolOpt('ssl_only', default=False, help='\nDisallow non-encrypted connections.\n\nRelated options:\n\n* cert\n* key\n'), cfg.BoolOpt('source_is_ipv6', default=False, help='Set to True if source host is addressed with IPv6.'), cfg.StrOpt('cert', default='self.pem', help='\nPath to SSL certificate file.\n\nRelated options:\n\n* key\n* ssl_only\n* [console] ssl_ciphers\n* [console] ssl_minimum_version\n'), cfg.StrOpt('key', help='\nSSL key file (if separate from cert).\n\nRelated options:\n\n* cert\n'), cfg.StrOpt('web', default='/usr/share/spice-html5', help='\nPath to directory with content which will be served by a web server.\n')]
 
-novnc_opts = [
-    cfg.StrOpt('record',
-               help="""
-Filename that will be used for storing websocket frames received
-and sent by a proxy service (like VNC, spice, serial) running on this host.
-If this is not set, no recording will be done.
-"""),
-    cfg.BoolOpt('daemon',
-                default=False,
-                help="Run as a background process."),
-    cfg.BoolOpt('ssl_only',
-                default=False,
-                help="""
-Disallow non-encrypted connections.
-
-Related options:
-
-* cert
-* key
-"""),
-    cfg.BoolOpt('source_is_ipv6',
-                default=False,
-                help="Set to True if source host is addressed with IPv6."),
-    cfg.StrOpt('cert',
-               default='self.pem',
-               help="""
-Path to SSL certificate file.
-
-Related options:
-
-* key
-* ssl_only
-* [console] ssl_ciphers
-* [console] ssl_minimum_version
-"""),
-    cfg.StrOpt('key',
-               help="""
-SSL key file (if separate from cert).
-
-Related options:
-
-* cert
-"""),
-    cfg.StrOpt('web',
-               default='/usr/share/spice-html5',
-               help="""
-Path to directory with content which will be served by a web server.
-"""),
-]
-
-
+@p.trace('register_opts')
 def register_opts(conf):
     conf.register_opts(novnc_opts)
 
-
+@p.trace('register_cli_opts')
 def register_cli_opts(conf):
     conf.register_cli_opts(novnc_opts)
 
-
+@p.trace('list_opts')
 def list_opts():
     return {'DEFAULT': novnc_opts}

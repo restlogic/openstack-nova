@@ -21,7 +21,7 @@ from nova.compute import api as compute
 from nova import context as nova_context
 from nova import objects
 from nova.policies import server_external_events as see_policies
-
+from bees import profiler as p
 
 LOG = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ TAG_REQUIRED = ('volume-extended', 'power-update',
                 'accelerator-request-bound')
 
 
+@p.trace_cls("ServerExternalEventsController")
 class ServerExternalEventsController(wsgi.Controller):
 
     def __init__(self):
